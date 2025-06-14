@@ -8,7 +8,21 @@
 import { LOG_LEVELS, ENVIRONMENTS, DEFAULT_CONFIG, THEMES } from './core/constants.js';
 
 import { deepMerge, environmentDetector } from './core/utils.js';
-import transportSystem from './transports/index.js';
+
+// 延迟加载传输系统
+let transportSystem = null;
+
+/**
+ * 动态导入传输系统模块
+ * @private
+ * @returns {Promise<Object>} 传输系统模块
+ */
+async function loadTransportSystem() {
+  if (!transportSystem) {
+    transportSystem = await import('./transports/index.js').then(module => module.default);
+  }
+  return transportSystem;
+}
 
 /**
  * LogMaster 主类，提供日志管理功能
@@ -29,6 +43,7 @@ class LogMaster {
    * @param {number} [userConfig.stackTraceLimit] - 堆栈跟踪最大深度
    * @param {string} [userConfig.dateFormat] - 日期格式
    * @param {Object} [userConfig.theme] - 主题配置
+   * @param {boolean} [userConfig.lazyLoad=true] - 是否启用延迟加载
    */
   constructor(userConfig = {}) {
     // 初始化私有属性
@@ -39,6 +54,8 @@ class LogMaster {
     this._transports = [];
     this._storage = null;
     this._seen = new WeakSet(); // 用于检测循环引用的WeakSet
+    this._transportSystemLoaded = false; // 标记传输系统是否已加载
+    this._pendingTransports = []; // 存储延迟加载之前添加的传输器
 
     // 初始化配置
     this._initConfig(userConfig);
@@ -48,6 +65,39 @@ class LogMaster {
 
     // 初始化存储机制
     this._initStorage();
+
+    // 如果不使用延迟加载，立即加载传输系统
+    if (userConfig.lazyLoad === false) {
+      this._loadTransportSystem();
+    }
+  }
+
+  /**
+   * 加载传输系统
+   * @private
+   * @async
+   */
+  async _loadTransportSystem() {
+    if (!this._transportSystemLoaded) {
+      // 检查是否有预加载的传输系统（单文件打包版本）
+      if (LogMaster._preloadedTransportSystem) {
+        transportSystem = LogMaster._preloadedTransportSystem;
+      } else {
+        // 动态加载传输系统
+        transportSystem = await loadTransportSystem();
+      }
+
+      this._transportSystemLoaded = true;
+
+      // 处理延迟加载之前添加的传输器
+      if (this._pendingTransports.length > 0) {
+        for (const { transport, options } of this._pendingTransports) {
+          this.addTransport(transport, options);
+        }
+        this._pendingTransports = [];
+      }
+    }
+    return transportSystem;
   }
 
   /**
@@ -652,7 +702,8 @@ class LogMaster {
       return `[无法序列化的对象: ${e.message}]`;
     } finally {
       // 清空循环引用检测集合
-      this._seen.clear();
+      // WeakSet 没有 clear 方法，重新初始化为新的 WeakSet
+      this._seen = new WeakSet();
     }
   }
 
@@ -678,13 +729,33 @@ class LogMaster {
   }
 
   /**
-   * 输出到所有传输器
+   * 将日志写入所有传输器
    * @private
    * @param {number} level - 日志级别
-   * @param {Array<any>} formattedArgs - 格式化后的参数
-   * @param {Array<any>} originalArgs - 原始参数
+   * @param {Array} formattedArgs - 格式化后的参数
+   * @param {Array} originalArgs - 原始参数
    */
   _writeToTransports(level, formattedArgs, originalArgs) {
+    // 如果传输系统尚未加载，先尝试加载
+    if (!this._transportSystemLoaded) {
+      // 准备传递给传输器的日志对象
+      const logEntry = {
+        level,
+        timestamp: new Date(),
+        formattedArgs,
+        originalArgs,
+        environment: this._environment,
+      };
+
+      // 触发传输系统加载
+      this._loadTransportSystem().then(() => {
+        // 传输系统加载完成后，发送日志
+        this._sendLogToTransports(logEntry);
+      });
+      return;
+    }
+
+    // 传输系统已加载，直接发送日志
     // 跳过传输处理，如果没有传输器
     if (!this._transports || this._transports.length === 0) {
       return;
@@ -698,6 +769,20 @@ class LogMaster {
       originalArgs,
       environment: this._environment,
     };
+
+    this._sendLogToTransports(logEntry);
+  }
+
+  /**
+   * 将日志发送到所有传输器
+   * @private
+   * @param {Object} logEntry - 日志条目
+   */
+  _sendLogToTransports(logEntry) {
+    // 跳过传输处理，如果没有传输器
+    if (!this._transports || this._transports.length === 0) {
+      return;
+    }
 
     // 发送到所有传输器
     for (const transport of this._transports) {
@@ -1216,10 +1301,33 @@ class LogMaster {
    * @param {boolean} [options.initialize=true] - 是否初始化传输器
    * @param {boolean} [options.waitForInit=false] - 是否等待异步初始化完成
    * @param {number} [options.initTimeout=5000] - 异步初始化超时时间(毫秒)
-   * @returns {Promise<LogMaster>|LogMaster} 返回当前实例或Promise，支持链式调用
-   * @throws {Error} 如果传输器无效或已存在则抛出错误
+   * @param {boolean} [options.throwOnInitError=true] - 初始化失败时是否抛出错误
+   * @returns {LogMaster|Promise<LogMaster>} 当前LogMaster实例或Promise
    */
   addTransport(transport, options = { initialize: true, waitForInit: false, initTimeout: 5000 }) {
+    // 如果传输系统尚未加载，将传输器添加到待处理队列
+    if (!this._transportSystemLoaded) {
+      // 先将传输器添加到待处理队列
+      this._pendingTransports.push({ transport, options });
+
+      // 触发传输系统加载
+      const loadPromise = this._loadTransportSystem().then(
+        () =>
+          // 传输系统加载完成后，会自动处理待处理队列中的传输器
+          this,
+      );
+
+      // 如果需要等待初始化完成，返回Promise
+      if (options.waitForInit) {
+        return loadPromise;
+      }
+
+      // 否则返回当前实例
+      return this;
+    }
+
+    // 传输系统已加载，正常处理
+
     // 验证传输器有效性
     if (!transportSystem.validateTransport(transport)) {
       throw new Error('无效的传输器：传输器必须是对象且实现log方法');
@@ -1418,11 +1526,15 @@ class LogMaster {
    * @param {boolean} [initOptions.initialize=true] - 是否初始化传输器
    * @param {boolean} [initOptions.waitForInit=false] - 是否等待异步初始化完成
    * @param {number} [initOptions.initTimeout=5000] - 异步初始化超时时间(毫秒)
-   * @returns {Promise<LogMaster>|LogMaster} 返回当前实例或Promise，支持链式调用
-   * @throws {Error} 如果传输器类型不支持或创建失败则抛出错误
+   * @returns {LogMaster|Promise<LogMaster>} 返回当前实例或Promise，支持链式调用
    */
-  createTransport(type, options = {}, initOptions = { initialize: true }) {
+  async createTransport(type, options = {}, initOptions = { initialize: true }) {
     try {
+      // 确保传输系统已加载
+      if (!this._transportSystemLoaded) {
+        await this._loadTransportSystem();
+      }
+
       const transport = transportSystem.create(type, options);
       return this.addTransport(transport, initOptions);
     } catch (err) {

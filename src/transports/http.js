@@ -774,7 +774,7 @@ class HTTPTransport extends BaseTransport {
   }
 
   /**
-   * 添加日志条目到批处理队列
+   * 将日志添加到批处理队列
    * @private
    * @param {Object} logEntry - 日志条目
    * @returns {Promise<boolean>} 操作是否成功
@@ -786,6 +786,16 @@ class HTTPTransport extends BaseTransport {
     // 添加到队列
     this._batchQueue.push(formattedEntry);
     this._batchQueueSize = this._batchQueue.length;
+
+    // 检查内存使用情况，如果过高则立即发送批处理
+    if (typeof process !== 'undefined' && process.memoryUsage) {
+      const memUsage = process.memoryUsage();
+      // 如果堆内存使用超过可用内存的80%，立即发送批处理
+      if (memUsage.heapUsed / memUsage.heapTotal > 0.8) {
+        this._sendBatch();
+        return Promise.resolve(true);
+      }
+    }
 
     // 如果达到批处理大小，立即发送
     if (this._batchQueue.length >= this.batchSize) {
@@ -819,6 +829,9 @@ class HTTPTransport extends BaseTransport {
       return;
     }
 
+    // 记录批处理开始时间，用于性能监控
+    const batchStartTime = Date.now();
+
     // 获取并清空当前队列
     const batchItems = [...this._batchQueue];
     this._batchQueue = [];
@@ -827,10 +840,28 @@ class HTTPTransport extends BaseTransport {
     // 批量发送
     try {
       await this.bulkLog(batchItems);
+
+      // 计算批处理性能并动态调整批处理大小
+      const batchDuration = Date.now() - batchStartTime;
+      const itemsPerSecond = (batchItems.length / batchDuration) * 1000;
+
+      // 如果处理速度很快，考虑增加批处理大小以提高效率
+      if (batchDuration < 200 && this.batchSize < 10000 && itemsPerSecond > 5000) {
+        this.batchSize = Math.min(10000, Math.floor(this.batchSize * 1.2));
+      }
+      // 如果处理时间过长，减小批处理大小以减少延迟
+      else if (batchDuration > 2000 && this.batchSize > 1000) {
+        this.batchSize = Math.max(1000, Math.floor(this.batchSize * 0.8));
+      }
     } catch (err) {
       // 批量发送失败，错误已经在bulkLog中处理
       if (!this.silent) {
         console.error('HTTP批量日志发送失败:', err);
+      }
+
+      // 如果发生错误，减小批处理大小以提高可靠性
+      if (this.batchSize > 1000) {
+        this.batchSize = Math.max(1000, Math.floor(this.batchSize * 0.5));
       }
     }
   }
