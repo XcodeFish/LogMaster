@@ -8,11 +8,11 @@ module.exports = {
           node: '12'
         },
         modules: false,
-        loose: true,
-        useBuiltIns: false
+        loose: true
       }
     ]
   ],
+  plugins: [],
   env: {
     test: {
       // Jest需要CommonJS模块
