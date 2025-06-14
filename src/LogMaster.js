@@ -8,6 +8,7 @@
 import { LOG_LEVELS, ENVIRONMENTS, DEFAULT_CONFIG, THEMES } from './core/constants.js';
 
 import { deepMerge, environmentDetector } from './core/utils.js';
+import transportSystem from './transports/index.js';
 
 /**
  * LogMaster 主类，提供日志管理功能
@@ -1213,12 +1214,14 @@ class LogMaster {
    * @param {Object} transport - 传输器对象，必须实现log方法
    * @param {Object} [options] - 传输器配置选项
    * @param {boolean} [options.initialize=true] - 是否初始化传输器
-   * @returns {LogMaster} 返回当前实例，支持链式调用
+   * @param {boolean} [options.waitForInit=false] - 是否等待异步初始化完成
+   * @param {number} [options.initTimeout=5000] - 异步初始化超时时间(毫秒)
+   * @returns {Promise<LogMaster>|LogMaster} 返回当前实例或Promise，支持链式调用
    * @throws {Error} 如果传输器无效或已存在则抛出错误
    */
-  addTransport(transport, options = { initialize: true }) {
+  addTransport(transport, options = { initialize: true, waitForInit: false, initTimeout: 5000 }) {
     // 验证传输器有效性
-    if (!this._isValidTransport(transport)) {
+    if (!transportSystem.validateTransport(transport)) {
       throw new Error('无效的传输器：传输器必须是对象且实现log方法');
     }
 
@@ -1237,19 +1240,214 @@ class LogMaster {
       transport.id = this._generateTransportId();
     }
 
+    // 初始化传输器状态属性
+    this._initTransportStatus(transport);
+
     // 初始化传输器（如果需要）
     if (options.initialize && typeof transport.init === 'function') {
       try {
-        transport.init();
+        // 标记初始化中状态
+        transport._initializing = true;
+
+        // 异步初始化处理
+        const initResult = transport.init();
+
+        // 如果是Promise且需要等待
+        if (initResult instanceof Promise && options.waitForInit) {
+          // 返回Promise
+          return Promise.race([
+            // 初始化Promise
+            initResult
+              .then(() => {
+                // 标记初始化成功
+                transport._ready = true;
+                transport._initializing = false;
+                transport._initTime = Date.now();
+
+                // 添加传输器到列表
+                this._transports.push(transport);
+                return this;
+              })
+              .catch(err => {
+                // 标记错误状态
+                this._markTransportError(transport, err, 'init');
+
+                // 根据选项决定是否抛出错误
+                if (options.throwOnInitError !== false) {
+                  throw new Error(`传输器异步初始化失败: ${err.message}`);
+                }
+
+                // 添加传输器到列表（即使初始化失败）
+                this._transports.push(transport);
+                return this;
+              }),
+
+            // 超时Promise
+            new Promise((_, reject) => {
+              setTimeout(() => {
+                const timeoutError = new Error(`传输器初始化超时(${options.initTimeout}ms)`);
+
+                // 标记超时错误
+                this._markTransportError(transport, timeoutError, 'timeout');
+
+                if (options.throwOnInitError !== false) {
+                  reject(timeoutError);
+                } else {
+                  // 添加传输器到列表（即使初始化超时）
+                  this._transports.push(transport);
+                }
+              }, options.initTimeout);
+            }),
+          ]);
+        }
+        // 如果是Promise但不需要等待
+        else if (initResult instanceof Promise) {
+          // 添加Promise错误处理
+          initResult
+            .then(() => {
+              // 标记初始化成功
+              transport._ready = true;
+              transport._initializing = false;
+              transport._initTime = Date.now();
+
+              // 发出初始化成功事件
+              this._emitTransportEvent('initSuccess', transport);
+            })
+            .catch(err => {
+              // 标记错误状态
+              this._markTransportError(transport, err, 'init');
+
+              // 发出初始化错误事件
+              this._emitTransportEvent('initError', transport, err);
+            });
+        } else {
+          // 同步初始化成功
+          transport._ready = true;
+          transport._initializing = false;
+          transport._initTime = Date.now();
+        }
       } catch (err) {
+        // 同步初始化错误
+        this._markTransportError(transport, err, 'init');
         throw new Error(`传输器初始化失败: ${err.message}`);
       }
+    } else {
+      // 不需要初始化，直接标记为就绪
+      transport._ready = true;
+      transport._initTime = Date.now();
     }
 
-    // 添加传输器到列表
-    this._transports.push(transport);
+    // 添加传输器到列表（如果不是等待异步初始化的情况）
+    if (
+      !(
+        options.initialize &&
+        options.waitForInit &&
+        typeof transport.init === 'function' &&
+        transport.init() instanceof Promise
+      )
+    ) {
+      this._transports.push(transport);
+    }
 
     return this;
+  }
+
+  /**
+   * 初始化传输器状态属性
+   * @private
+   * @param {Object} transport - 传输器对象
+   */
+  _initTransportStatus(transport) {
+    // 基本状态属性
+    transport._ready = false;
+    transport._initializing = false;
+    transport._initTime = null;
+    transport._lastError = null;
+    transport._errorCount = 0;
+    transport._errorsByType = {};
+
+    // 确保传输器有错误状态标记方法
+    transport._markError = (err, type = 'unknown') => {
+      this._markTransportError(transport, err, type);
+    };
+  }
+
+  /**
+   * 标记传输器错误状态
+   * @private
+   * @param {Object} transport - 传输器对象
+   * @param {Error} err - 错误对象
+   * @param {string} [type='unknown'] - 错误类型
+   */
+  _markTransportError(transport, err, type = 'unknown') {
+    // 设置错误状态
+    transport._lastError = err;
+    transport._errorTime = Date.now();
+    transport._errorCount = (transport._errorCount || 0) + 1;
+
+    // 按类型记录错误
+    transport._errorsByType = transport._errorsByType || {};
+    transport._errorsByType[type] = transport._errorsByType[type] || [];
+    transport._errorsByType[type].push({
+      message: err.message,
+      stack: err.stack,
+      time: Date.now(),
+    });
+
+    // 限制每种类型的错误历史记录数量
+    const maxErrorHistory = 10;
+    if (transport._errorsByType[type].length > maxErrorHistory) {
+      transport._errorsByType[type] = transport._errorsByType[type].slice(-maxErrorHistory);
+    }
+
+    // 初始化错误特殊处理
+    if (type === 'init') {
+      transport._initError = err;
+      transport._initErrorTime = Date.now();
+      transport._ready = false;
+      transport._initializing = false;
+    }
+  }
+
+  /**
+   * 创建并添加传输器
+   * @public
+   * @param {string} type - 传输器类型，如 'file', 'http'
+   * @param {Object} [options] - 传输器配置选项
+   * @param {Object} [initOptions] - 初始化选项
+   * @param {boolean} [initOptions.initialize=true] - 是否初始化传输器
+   * @param {boolean} [initOptions.waitForInit=false] - 是否等待异步初始化完成
+   * @param {number} [initOptions.initTimeout=5000] - 异步初始化超时时间(毫秒)
+   * @returns {Promise<LogMaster>|LogMaster} 返回当前实例或Promise，支持链式调用
+   * @throws {Error} 如果传输器类型不支持或创建失败则抛出错误
+   */
+  createTransport(type, options = {}, initOptions = { initialize: true }) {
+    try {
+      const transport = transportSystem.create(type, options);
+      return this.addTransport(transport, initOptions);
+    } catch (err) {
+      throw new Error(`创建传输器失败: ${err.message}`);
+    }
+  }
+
+  /**
+   * 添加文件传输器的快捷方法
+   * @public
+   * @param {Object} [options] - 文件传输器配置选项
+   * @returns {LogMaster} 返回当前实例，支持链式调用
+   */
+  addFileTransport(options = {}) {
+    return this.createTransport('file', options);
+  }
+
+  /**
+   * 添加HTTP传输器的快捷方法
+   * @public
+   * @param {Object} [options] - HTTP传输器配置选项
+   * @returns {LogMaster} 返回当前实例，支持链式调用
+   */
+  addHTTPTransport(options = {}) {
+    return this.createTransport('http', options);
   }
 
   /**
@@ -1325,15 +1523,156 @@ class LogMaster {
   }
 
   /**
+   * 获取单个传输器的状态信息
+   * @private
+   * @param {Object} transport - 传输器对象
+   * @returns {Object} 传输器状态信息
+   */
+  _getTransportStatusInfo(transport) {
+    // 参数有效性检查
+    if (!transport || typeof transport !== 'object') {
+      return {
+        error: '无效的传输器: 传输器必须是非空对象',
+        valid: false,
+      };
+    }
+
+    // 基本信息
+    const info = {
+      id: transport.id || '未知ID',
+      name: transport.name || '未命名传输器',
+      type: transport.constructor ? transport.constructor.name : 'Unknown',
+      valid: true,
+      ready: transport._ready === true,
+      enabled: transport.enabled !== false,
+      initializing: transport._initializing === true,
+      errorCount: transport._errorCount || 0,
+    };
+
+    // 时间信息
+    if (transport._initTime) {
+      info.initTime = transport._initTime;
+      info.uptime = Date.now() - transport._initTime;
+    }
+
+    // 错误信息
+    if (transport._lastError) {
+      info.lastError = {
+        message: transport._lastError.message,
+        type: transport._lastError.type || 'unknown',
+        time: transport._errorTime,
+        elapsed: Date.now() - (transport._errorTime || Date.now()),
+      };
+    }
+
+    // 初始化错误
+    if (transport._initError) {
+      info.initError = {
+        message: transport._initError.message,
+        time: transport._initErrorTime,
+        elapsed: Date.now() - (transport._initErrorTime || Date.now()),
+      };
+    }
+
+    // 如果传输器有自己的状态方法，合并其信息
+    if (typeof transport.getStatus === 'function') {
+      try {
+        const transportStatus = transport.getStatus();
+        Object.assign(info, transportStatus);
+      } catch (err) {
+        info.statusError = err.message;
+      }
+    }
+
+    return info;
+  }
+
+  /**
+   * 检查传输器健康状态
+   * @public
+   * @param {Object|string} [transportOrId] - 传输器对象或ID
+   * @returns {Object} 健康状态信息
+   */
+  checkTransportHealth(transportOrId) {
+    // 获取传输器状态信息
+    const status = this.getTransportStatus(transportOrId);
+
+    if (!status) {
+      return { found: false };
+    }
+
+    // 如果是数组（多个传输器），映射每个传输器的健康状态
+    if (Array.isArray(status)) {
+      return status.map(s => this._assessTransportHealth(s));
+    }
+
+    // 单个传输器的健康状态
+    return this._assessTransportHealth(status);
+  }
+
+  /**
+   * 评估传输器健康状态
+   * @private
+   * @param {Object} status - 传输器状态信息
+   * @returns {Object} 健康状态评估
+   */
+  _assessTransportHealth(status) {
+    const health = {
+      id: status.id,
+      name: status.name,
+      healthy: status.ready === true && !status.initError,
+      ready: status.ready === true,
+      enabled: status.enabled !== false,
+      initializing: status.initializing === true,
+      errorCount: status.errorCount || 0,
+    };
+
+    // 添加问题描述
+    const issues = [];
+
+    if (!status.ready) {
+      issues.push('传输器未就绪');
+    }
+
+    if (status.initError) {
+      issues.push(`初始化错误: ${status.initError.message}`);
+    }
+
+    if (status.lastError) {
+      issues.push(`最近错误: ${status.lastError.message}`);
+    }
+
+    if (status.errorCount > 0) {
+      issues.push(`累计错误: ${status.errorCount}次`);
+    }
+
+    if (!status.enabled) {
+      issues.push('传输器已禁用');
+    }
+
+    health.issues = issues;
+    health.issueCount = issues.length;
+
+    return health;
+  }
+
+  /**
+   * 获取当前已注册的所有传输器
+   * @public
+   * @returns {Array} 传输器数组
+   */
+  getTransports() {
+    return this._transports ? [...this._transports] : [];
+  }
+
+  /**
    * 检查传输器是否有效
    * @private
    * @param {Object} transport - 要检查的传输器
    * @returns {boolean} 传输器是否有效
    */
   _isValidTransport(transport) {
-    return (
-      transport !== null && typeof transport === 'object' && typeof transport.log === 'function'
-    );
+    return transportSystem.validateTransport(transport);
   }
 
   /**
@@ -1383,6 +1722,78 @@ class LogMaster {
    */
   _generateTransportId() {
     return `transport_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * 发出传输器相关事件
+   * @private
+   * @param {string} eventName - 事件名称
+   * @param {Object} transport - 传输器对象
+   * @param {Error} [error] - 错误对象(如果有)
+   */
+  _emitTransportEvent(eventName, transport, error) {
+    // 目前只是记录日志，未来可以扩展为完整的事件系统
+    const eventInfo = {
+      time: new Date(),
+      transportId: transport.id,
+      transportName: transport.name,
+      eventName,
+    };
+
+    if (error) {
+      eventInfo.error = {
+        message: error.message,
+        stack: error.stack,
+      };
+    }
+
+    // 记录事件
+    if (this._logLevel <= LOG_LEVELS.DEBUG) {
+      console.debug(`LogMaster传输器事件: ${JSON.stringify(eventInfo)}`);
+    }
+  }
+
+  /**
+   * 获取传输器状态信息
+   * @public
+   * @param {Object|string} [transportOrId] - 特定传输器对象或ID，如果不提供则返回所有传输器状态
+   * @returns {Object|Array} 传输器状态信息
+   */
+  getTransportStatus(transportOrId) {
+    // 如果没有传输器，返回空数组
+    if (!this._transports || this._transports.length === 0) {
+      return transportOrId ? null : [];
+    }
+
+    // 如果提供了特定传输器
+    if (transportOrId) {
+      // 检查参数有效性
+      if (
+        typeof transportOrId !== 'string' &&
+        (typeof transportOrId !== 'object' || transportOrId === null)
+      ) {
+        return {
+          error: '无效的传输器参数: 必须是字符串ID或传输器对象',
+          valid: false,
+        };
+      }
+
+      const index = this._findTransportIndex(transportOrId);
+      if (index === -1) {
+        return {
+          error: '未找到指定的传输器',
+          valid: false,
+          searchParam:
+            typeof transportOrId === 'string' ? transportOrId : transportOrId.id || '未知ID',
+        };
+      }
+
+      const transport = this._transports[index];
+      return this._getTransportStatusInfo(transport);
+    }
+
+    // 返回所有传输器状态
+    return this._transports.map(transport => this._getTransportStatusInfo(transport));
   }
 }
 
