@@ -1,0 +1,122 @@
+name: CI Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: 使用 Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 运行 Lint
+      run: npm run lint
+
+    - name: 运行单元测试和集成测试
+      run: npm test
+
+    - name: 检查覆盖率
+      run: npm run test:coverage
+
+    - name: 上传覆盖率报告
+      uses: codecov/codecov-action@v2
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        directory: ./coverage/
+        fail_ci_if_error: true
+
+  e2e:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: 使用 Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 安装 Playwright
+      run: npx playwright install --with-deps
+
+    - name: 运行 E2E 测试
+      run: npm run test:e2e
+
+    - name: 上传 Playwright 结果
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: playwright-results
+        path: test-results/
+
+  performance:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: 使用 Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 运行性能基准测试
+      run: npm run test:perf
+
+    - name: 检查性能回归
+      run: node scripts/check-perf-regression.js
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: 使用 Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 构建
+      run: npm run build:all
+
+    - name: 检查包体积
+      run: npm run postbuild
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v2
+      with:
+        name: dist
+        path: dist/
