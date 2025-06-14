@@ -85,16 +85,6 @@
   },
   "unpkg": "dist/logmaster.min.js",
   "jsdelivr": "dist/logmaster.min.js",
-  "jest": {
-    "coverageThreshold": {
-      "global": {
-        "branches": 90,
-        "functions": 95,
-        "lines": 95,
-        "statements": 95
-      }
-    }
-  },
   "lint-staged": {
     "*.js": [
       "eslint --fix",

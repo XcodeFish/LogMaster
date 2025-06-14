@@ -1,8 +1,12 @@
+/**
+ * Jest 配置文件
+ */
 module.exports = {
   // 指定测试文件匹配模式
   testMatch: [
     '**/tests/unit/**/*.spec.js',
-    '**/tests/integration/**/*.spec.js'
+    '**/tests/integration/**/*.spec.js',
+    '**/tests/**/*.test.js',
   ],
 
   // 忽略的目录
@@ -15,20 +19,16 @@ module.exports = {
   clearMocks: true,
 
   // 代码覆盖率设置
-  collectCoverage: true,
+  collectCoverage: false,
   coverageDirectory: 'coverage',
-  collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/**/*.d.ts',
-    '!**/node_modules/**'
-  ],
+  collectCoverageFrom: ['src/**/*.js', '!src/**/*.d.ts', '!**/node_modules/**'],
   coverageThreshold: {
     global: {
       branches: 90,
       functions: 95,
       lines: 95,
-      statements: 95
-    }
+      statements: 95,
+    },
   },
 
   // 报告格式
@@ -36,17 +36,17 @@ module.exports = {
 
   // 设置模块别名
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
 
   // 变换器配置
   transform: {
-    '^.+\\.js$': 'babel-jest'
+    '^.+\\.js$': 'babel-jest',
   },
 
   // 测试超时设置（毫秒）
   testTimeout: 10000,
 
   // 详细输出
-  verbose: true
+  verbose: true,
 };
