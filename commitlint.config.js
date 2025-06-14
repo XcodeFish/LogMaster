@@ -15,13 +15,13 @@ module.exports = {
         'refactor', // 重构
         'revert', // 版本回滚
         'style', // 格式（不影响代码运行的变动）
-        'test' // 测试
-      ]
+        'test', // 测试
+      ],
     ],
     'type-case': [2, 'always', 'lower'],
     'type-empty': [2, 'never'],
     'subject-empty': [2, 'never'],
     'subject-full-stop': [2, 'never', '.'],
-    'header-max-length': [2, 'always', 72]
-  }
+    'header-max-length': [2, 'always', 72],
+  },
 };

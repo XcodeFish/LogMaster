@@ -5,11 +5,7 @@ module.exports = {
     es6: true,
     jest: true,
   },
-  extends: [
-    'eslint:recommended',
-    'plugin:prettier/recommended',
-    'plugin:jest/recommended',
-  ],
+  extends: ['eslint:recommended', 'plugin:jest/recommended', 'plugin:prettier/recommended'],
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: 'module',
@@ -25,11 +21,11 @@ module.exports = {
     // 代码风格规则
     'arrow-body-style': ['error', 'as-needed'],
     'arrow-parens': ['error', 'as-needed'],
-    'comma-dangle': ['error', 'always-multiline'],
-    'curly': ['error', 'multi-line'],
+    curly: ['error', 'multi-line'],
     'eol-last': 'error',
-    'quotes': ['error', 'single', { allowTemplateLiterals: true }],
-    'semi': ['error', 'always'],
+    // 注释掉quotes规则，使用prettier的规则
+    // quotes: ['error', 'single', { allowTemplateLiterals: true }],
+    semi: ['error', 'always'],
 
     // jest规则
     'jest/no-disabled-tests': 'warn',
@@ -37,8 +33,19 @@ module.exports = {
     'jest/no-identical-title': 'error',
 
     // 空格和缩进规则
-    'indent': ['error', 2, { SwitchCase: 1 }],
+    indent: ['error', 2, { SwitchCase: 1 }],
     'object-curly-spacing': ['error', 'always'],
+
+    // prettier规则
+    'prettier/prettier': [
+      'error',
+      {
+        singleQuote: true,
+        trailingComma: 'all',
+        printWidth: 100,
+        tabWidth: 2,
+      },
+    ],
   },
   overrides: [
     {

@@ -43,7 +43,13 @@ Object.keys(latestResults).forEach(testName => {
   const latest = latestResults[testName];
 
   // 计算性能变化百分比
-  const changePercent = ((latest.ops - baseline.ops) / baseline.ops) * 100;
+  let changePercent;
+  if (baseline.ops === 0) {
+    // 基线值为0时，无法计算百分比变化，直接使用绝对值
+    changePercent = latest.ops > 0 ? 100 : 0; // 从0到任何正值都视为100%的提升
+  } else {
+    changePercent = ((latest.ops - baseline.ops) / baseline.ops) * 100;
+  }
 
   if (changePercent < -5) {
     // 超过5%的性能下降视为回归
@@ -51,7 +57,7 @@ Object.keys(latestResults).forEach(testName => {
       test: testName,
       baseline: baseline.ops.toFixed(2),
       current: latest.ops.toFixed(2),
-      change: changePercent.toFixed(2) + '%'
+      change: changePercent.toFixed(2) + '%',
     });
   } else if (changePercent > 5) {
     // 超过5%的性能提升记录下来
@@ -59,7 +65,7 @@ Object.keys(latestResults).forEach(testName => {
       test: testName,
       baseline: baseline.ops.toFixed(2),
       current: latest.ops.toFixed(2),
-      change: '+' + changePercent.toFixed(2) + '%'
+      change: '+' + changePercent.toFixed(2) + '%',
     });
   }
 });
