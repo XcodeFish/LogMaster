@@ -1,3 +1,9 @@
+/**
+ * @file Playwright配置文件
+ * @author LogMaster Team
+ * @license MIT
+ */
+
 const { devices } = require('@playwright/test');
 
 module.exports = {
@@ -6,10 +12,7 @@ module.exports = {
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [
-    ['html'],
-    ['json', { outputFile: 'test-results/e2e-results.json' }]
-  ],
+  reporter: [['html'], ['json', { outputFile: 'test-results/e2e-results.json' }]],
 
   use: {
     trace: 'on-first-retry',
@@ -41,13 +44,13 @@ module.exports = {
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 12'] },
-    }
+    },
   ],
 
   // 本地开发服务器配置
   webServer: {
-    command: 'npm run serve',
+    command: 'npx http-server -p 8080',
     port: 8080,
     reuseExistingServer: !process.env.CI,
   },
-}; 
+};

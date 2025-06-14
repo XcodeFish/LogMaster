@@ -5,7 +5,7 @@
 [![测试覆盖率](https://img.shields.io/codecov/c/github/username/logmaster)](https://codecov.io/gh/username/logmaster)
 [![许可证](https://img.shields.io/npm/l/logmaster.svg)](https://github.com/username/logmaster/blob/main/LICENSE)
 
-我将为您设计一个美观实用的日志管理工具，解决开发中日志太多导致代码杂乱以及控制台输出不美观的问题。
+这是一个美观实用的日志管理工具，解决开发中日志太多导致代码杂乱以及控制台输出不美观的问题。
 
 ## 一、设计思路
 

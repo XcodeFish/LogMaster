@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogMaster 兼容性测试</title>
+  <script src="../../../dist/logmaster.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    .test-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      padding: 8px 12px;
+      margin: 5px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow: auto;
+    }
+    .log-container {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>LogMaster 浏览器兼容性测试</h1>
+  <div id="logger-ready" data-testid="logger-ready">LogMaster 加载完成</div>
+
+  <div class="test-section">
+    <h2>当前特性支持</h2>
+    <pre id="features-display">加载中...</pre>
+    <button onclick="toggleFeature('colors')">切换颜色支持</button>
+    <button onclick="toggleFeature('groups')">切换分组支持</button>
+    <button onclick="toggleFeature('table')">切换表格支持</button>
+    <button onclick="toggleFeature('storage')">切换存储支持</button>
+  </div>
+
+  <div class="test-section">
+    <h2>日志测试</h2>
+    <button onclick="testBasicLog()">基础日志</button>
+    <button onclick="testColoredLog()">彩色日志</button>
+    <button onclick="testObjectLog()">对象日志</button>
+    <button onclick="testErrorLog()">错误日志</button>
+    <button onclick="testGrouping()">分组功能</button>
+    <button onclick="testTable()">表格功能</button>
+  </div>
+
+  <div class="test-section">
+    <h2>设置测试</h2>
+    <button onclick="setLogLevel('DEBUG')">DEBUG级别</button>
+    <button onclick="setLogLevel('INFO')">INFO级别</button>
+    <button onclick="setLogLevel('WARN')">WARN级别</button>
+    <button onclick="setLogLevel('ERROR')">ERROR级别</button>
+    <button onclick="setTheme('default')">默认主题</button>
+    <button onclick="setTheme('dark')">暗色主题</button>
+  </div>
+
+  <div class="test-section">
+    <h2>捕获的日志</h2>
+    <button onclick="clearLogs()">清空日志</button>
+    <div class="log-container">
+      <pre id="log-display">暂无日志</pre>
+    </div>
+  </div>
+
+  <script>
+    // 全局变量
+    window.capturedLogs = [];
+    window.browserFeatures = ['colors', 'groups', 'table', 'storage'];
+    window.logger = null;
+
+    // 日志捕获函数
+    function captureLog(level, message, details, type, hasStyle) {
+      window.capturedLogs.push({
+        level,
+        message,
+        details: details || '',
+        type: type || 'log',
+        hasStyle: !!hasStyle
+      });
+      updateLogDisplay();
+    }
+
+    // 初始化LogMaster
+    window.initLogger = function() {
+      // 清除之前的实例
+      if (window.logger) {
+        window.logger = null;
+      }
+
+      // 记录当前特性支持
+      updateFeaturesDisplay();
+
+      // 重载控制台方法以捕获日志
+      const originalConsole = {
+        log: console.log,
+        info: console.info,
+        warn: console.warn,
+        error: console.error,
+        group: console.group,
+        groupCollapsed: console.groupCollapsed,
+        groupEnd: console.groupEnd,
+        table: console.table
+      };
+
+      // 覆盖控制台方法
+      console.log = function(...args) {
+        captureLog('DEBUG', args.join(' '), null, 'log', args[0] && args[0].includes('%c'));
+        originalConsole.log(...args);
+      };
+
+      console.info = function(...args) {
+        captureLog('INFO', args.join(' '), null, 'log', args[0] && args[0].includes('%c'));
+        originalConsole.info(...args);
+      };
+
+      console.warn = function(...args) {
+        captureLog('WARN', args.join(' '), null, 'log', args[0] && args[0].includes('%c'));
+        originalConsole.warn(...args);
+      };
+
+      console.error = function(...args) {
+        captureLog('ERROR', args.join(' '), args[1] instanceof Error ? args[1].stack : null, 'log', args[0] && args[0].includes('%c'));
+        originalConsole.error(...args);
+      };
+
+      // 根据特性支持决定是否模拟特定功能
+      if (!window.browserFeatures.includes('groups')) {
+        console.group = function(label) {
+          captureLog('INFO', label, null, 'group-start');
+          originalConsole.log(`▼ ${label}`);
+        };
+
+        console.groupCollapsed = console.group;
+
+        console.groupEnd = function() {
+          captureLog('INFO', '', null, 'group-end');
+          originalConsole.log('▲ Group End');
+        };
+      } else {
+        console.group = function(label) {
+          captureLog('INFO', label, null, 'group');
+          originalConsole.group(label);
+        };
+
+        console.groupCollapsed = function(label) {
+          captureLog('INFO', label, null, 'groupCollapsed');
+          originalConsole.groupCollapsed(label);
+        };
+
+        console.groupEnd = function() {
+          captureLog('INFO', '', null, 'groupEnd');
+          originalConsole.groupEnd();
+        };
+      }
+
+      if (!window.browserFeatures.includes('table')) {
+        console.table = function(data, columns) {
+          captureLog('INFO', 'Table Data', JSON.stringify(data), 'table');
+          originalConsole.log('Table Data:', data);
+        };
+      } else {
+        console.table = function(data, columns) {
+          captureLog('INFO', 'Table Data', JSON.stringify(data), 'table');
+          originalConsole.table(data, columns);
+        };
+      }
+
+      // 如果不支持存储，需要模拟localStorage
+      if (!window.browserFeatures.includes('storage')) {
+        const memoryStorage = {};
+        window._memoryStorage = memoryStorage;
+
+        // 如果已经有真实的localStorage，先保存引用
+        if (window.originalStorage) {
+          window._originalStorage = window.originalStorage;
+        }
+
+        // 提供模拟的localStorage
+        window.localStorage = {
+          getItem: function(key) {
+            return memoryStorage[key] || null;
+          },
+          setItem: function(key, value) {
+            memoryStorage[key] = String(value);
+          },
+          removeItem: function(key) {
+            delete memoryStorage[key];
+          },
+          clear: function() {
+            Object.keys(memoryStorage).forEach(key => {
+              delete memoryStorage[key];
+            });
+          }
+        };
+      } else if (window._originalStorage) {
+        // 恢复原始localStorage（如果之前被替换）
+        window.localStorage = window._originalStorage;
+      }
+
+      // 创建LogMaster实例
+      window.logger = new LogMaster({
+        useColors: window.browserFeatures.includes('colors'),
+        persistConfig: window.browserFeatures.includes('storage')
+      });
+
+      captureLog('SYSTEM', 'LogMaster已初始化，支持特性: ' + window.browserFeatures.join(', '));
+    };
+
+    // 切换特性
+    function toggleFeature(feature) {
+      const index = window.browserFeatures.indexOf(feature);
+      if (index > -1) {
+        window.browserFeatures.splice(index, 1);
+      } else {
+        window.browserFeatures.push(feature);
+      }
+
+      // 重新初始化Logger
+      window.initLogger();
+    }
+
+    // 测试函数
+    function testBasicLog() {
+      logger.debug('这是一条调试信息');
+      logger.info('这是一条信息');
+      logger.warn('这是一条警告');
+      logger.error('这是一条错误');
+    }
+
+    function testColoredLog() {
+      const supported = window.browserFeatures.includes('colors');
+      logger.info(`彩色日志测试${supported ? '（支持）' : '（不支持）'}`);
+    }
+
+    function testObjectLog() {
+      logger.info('数组:', [1, 2, 3, 4, 5]);
+      logger.info('对象:', { name: 'LogMaster', version: '1.0.0', features: ['logging', 'styling'] });
+      logger.info('嵌套对象:', {
+        user: {
+          name: 'Test User',
+          roles: ['admin', 'editor'],
+          settings: {
+            theme: 'dark',
+            notifications: true
+          }
+        }
+      });
+    }
+
+    function testErrorLog() {
+      try {
+        throw new Error('测试异常');
+      } catch (err) {
+        err.code = 'TEST_ERROR';
+        logger.error('捕获到错误:', err);
+      }
+    }
+
+    function testGrouping() {
+      const supported = window.browserFeatures.includes('groups');
+      logger.info(`分组测试${supported ? '（支持）' : '（不支持）'}`);
+
+      logger.group('分组测试');
+      logger.info('分组内的消息1');
+      logger.info('分组内的消息2');
+
+      logger.group('嵌套分组');
+      logger.info('嵌套分组内的消息');
+      logger.groupEnd();
+
+      logger.info('回到外层分组');
+      logger.groupEnd();
+    }
+
+    function testTable() {
+      const supported = window.browserFeatures.includes('table');
+      logger.info(`表格测试${supported ? '（支持）' : '（不支持）'}`);
+
+      logger.table([
+        { id: 1, name: '项目1', status: '活跃' },
+        { id: 2, name: '项目2', status: '完成' },
+        { id: 3, name: '项目3', status: '暂停' }
+      ]);
+    }
+
+    function setLogLevel(level) {
+      logger.setLogLevel(level);
+      captureLog('SYSTEM', `日志级别设置为: ${level}`);
+    }
+
+    function setTheme(theme) {
+      logger.setTheme(theme);
+      captureLog('SYSTEM', `主题设置为: ${theme}`);
+    }
+
+    function clearLogs() {
+      window.capturedLogs = [];
+      updateLogDisplay();
+    }
+
+    // 更新界面显示
+    function updateLogDisplay() {
+      const logDisplay = document.getElementById('log-display');
+      if (window.capturedLogs.length === 0) {
+        logDisplay.textContent = '暂无日志';
+        return;
+      }
+
+      logDisplay.textContent = window.capturedLogs.map((log, index) => {
+        return `[${index}] ${log.level}: ${log.message}${log.details ? '\n    ' + log.details : ''}`;
+      }).join('\n');
+    }
+
+    function updateFeaturesDisplay() {
+      const featuresDisplay = document.getElementById('features-display');
+      featuresDisplay.textContent = JSON.stringify(window.browserFeatures, null, 2);
+    }
+
+    // 初始化
+    window.initLogger();
+  </script>
+</body>
+</html>
