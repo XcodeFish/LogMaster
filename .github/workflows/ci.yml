@@ -95,7 +95,7 @@ jobs:
         run: pnpm install
 
       - name: 构建项目
-        run: pnpm build
+        run: pnpm build:all
 
       - name: 检查包体积
         run: pnpm check-size

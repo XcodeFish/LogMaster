@@ -42,7 +42,7 @@ jobs:
         run: pnpm install
 
       - name: 构建项目
-        run: pnpm build
+        run: pnpm build:all
 
       - name: 运行测试
         run: pnpm test

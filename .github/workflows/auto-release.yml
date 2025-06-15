@@ -104,7 +104,7 @@ jobs:
           git push --follow-tags origin ${{ github.ref_name }}
 
       - name: 构建项目
-        run: pnpm build
+        run: pnpm build:all
 
       - name: 发布到NPM
         run: pnpm publish --no-git-checks
