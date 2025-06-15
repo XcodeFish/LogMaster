@@ -2,8 +2,8 @@
 
 [![npm版本](https://img.shields.io/npm/v/logmaster.svg)](https://www.npmjs.com/package/logmaster)
 [![下载量](https://img.shields.io/npm/dm/logmaster.svg)](https://www.npmjs.com/package/logmaster)
-[![测试覆盖率](https://img.shields.io/codecov/c/github/username/logmaster)](https://codecov.io/gh/username/logmaster)
-[![许可证](https://img.shields.io/npm/l/logmaster.svg)](https://github.com/username/logmaster/blob/main/LICENSE)
+[![测试覆盖率](https://img.shields.io/codecov/c/github/XcodeFish/logmaster)](https://codecov.io/gh/XcodeFish/logmaster)
+[![许可证](https://img.shields.io/npm/l/logmaster.svg)](https://github.com/XcodeFish/logmaster/blob/main/LICENSE)
 
 ## 简介
 
@@ -99,7 +99,7 @@ logger.error('错误信息');     // ❌ 红色
 // 日志分组
 logger.group('用户认证流程', () => {
   logger.info('验证凭据格式');
-  logger.debug('请求数据', { username: 'admin' });
+  logger.debug('请求数据', { XcodeFish: 'admin' });
   logger.info('认证成功');
 });
 
@@ -204,7 +204,7 @@ logger.table(data, columns);
 import logger from 'logmaster';
 
 async function authenticateUser(credentials) {
-  logger.debug('开始用户认证', { username: credentials.username });
+  logger.debug('开始用户认证', { XcodeFish: credentials.XcodeFish });
 
   try {
     logger.group('认证流程', async () => {
@@ -413,7 +413,7 @@ npm run build
 
 ### 问题反馈
 
-有任何问题或建议，请[提交 issue](https://github.com/username/logmaster/issues/new/choose)。请提供：
+有任何问题或建议，请[提交 issue](https://github.com/XcodeFish/logmaster/issues/new/choose)。请提供：
 
 1. 问题描述
 2. 复现步骤
@@ -422,10 +422,10 @@ npm run build
 
 ## 许可证
 
-本项目使用 [MIT 许可证](https://github.com/username/logmaster/blob/master/LICENSE)。
+本项目使用 [MIT 许可证](https://github.com/XcodeFish/logmaster/blob/master/LICENSE)。
 
 ---
 
 LogMaster 帮助开发者在保持代码整洁的同时，快速定位问题，提升调试效率，是现代前端开发的必备工具。
 
-[版本更新日志](https://github.com/username/logmaster/blob/master/CHANGELOG.md) | [贡献指南](https://github.com/username/logmaster/blob/master/CONTRIBUTING.md) | [行为准则](https://github.com/username/logmaster/blob/master/CODE_OF_CONDUCT.md)
+[版本更新日志](https://github.com/XcodeFish/logmaster/blob/master/CHANGELOG.md) | [贡献指南](https://github.com/XcodeFish/logmaster/blob/master/CONTRIBUTING.md) | [行为准则](https://github.com/XcodeFish/logmaster/blob/master/CODE_OF_CONDUCT.md)
