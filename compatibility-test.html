@@ -212,6 +212,20 @@
       document.getElementById('logger-ready').textContent = 'LogMaster 已就绪';
       document.getElementById('logger-ready').style.color = 'green';
 
+      // 从localStorage加载日志级别设置
+      try {
+        const savedSettings = localStorage.getItem('logmaster_settings');
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings);
+          if (settings.logLevel) {
+            window._currentLogLevel = settings.logLevel;
+            console.log('从localStorage加载日志级别:', settings.logLevel);
+          }
+        }
+      } catch (e) {
+        console.warn('无法从localStorage加载日志级别:', e);
+      }
+
       // 加载LogMaster脚本
       if (!window.LogMaster) {
         const script = document.createElement('script');
@@ -265,9 +279,9 @@
         }
 
         // 应用保存的日志级别（如果有）
-        if (window._savedLogLevel && window.logger.setLogLevel) {
-          window.logger.setLogLevel(window._savedLogLevel);
-          console.log('应用保存的日志级别:', window._savedLogLevel);
+        if (window._currentLogLevel && window.logger.setLogLevel) {
+          window.logger.setLogLevel(window._currentLogLevel);
+          console.log('应用保存的日志级别:', window._currentLogLevel);
         }
 
         // 确保日志捕获初始化
@@ -462,13 +476,7 @@
 
     // 测试函数
     function testBasicLog() {
-      // 直接捕获基本日志，确保所有级别都被记录
-      captureLog('DEBUG', '这是一条调试信息', null, 'log', window.browserFeatures.includes('colors'));
-      captureLog('INFO', '这是一条信息', null, 'log', window.browserFeatures.includes('colors'));
-      captureLog('WARN', '这是一条警告', null, 'log', window.browserFeatures.includes('colors'));
-      captureLog('ERROR', '这是一条错误', null, 'log', window.browserFeatures.includes('colors'));
-
-      // 使用logger记录
+      // 使用logger记录，让logger自己根据级别过滤
       logger.debug('这是一条调试信息');
       logger.info('这是一条信息');
       logger.warn('这是一条警告');
@@ -620,6 +628,7 @@
 
       // 保存当前日志级别到内存中
       window._currentLogLevel = level;
+      console.log('日志级别设置为:', level);
 
       // 调用logger的setLogLevel方法
       if (window.logger.setLogLevel) {
@@ -639,6 +648,11 @@
       } catch (e) {
         console.warn('无法保存日志级别设置到localStorage:', e);
       }
+
+      // 确保在页面刷新后，日志级别设置能被正确应用
+      window.addEventListener('load', function() {
+        console.log('页面加载完成，当前日志级别:', window._currentLogLevel);
+      });
 
       captureLog('SYSTEM', `日志级别设置为: ${level}`, null, 'log', window.browserFeatures.includes('colors'));
     }

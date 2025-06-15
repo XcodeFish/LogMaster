@@ -141,6 +141,11 @@ test.describe('LogMaster 日志过滤功能测试', () => {
     const hasWarn = userLogs.some(log => log.level === 'WARN' || log.message.includes('警告'));
     const hasError = userLogs.some(log => log.level === 'ERROR' || log.message.includes('错误'));
 
+    // 在页面上确认当前日志级别已正确设置为ERROR
+    const currentLogLevel = await page.evaluate(() => window._currentLogLevel);
+    expect(currentLogLevel).toBe('ERROR');
+
+    // 确认日志过滤正常工作
     expect(hasDebug).toBeFalsy();
     expect(hasInfo).toBeFalsy();
     expect(hasWarn).toBeFalsy();

@@ -76,8 +76,15 @@ test.describe('LogMaster 浏览器兼容性测试', () => {
       // 基础日志功能应始终有效
       expect(results.logs).toContainEqual(
         expect.objectContaining({
+          level: 'DEBUG',
+          message: expect.stringContaining('调试信息'),
+        }),
+      );
+
+      expect(results.logs).toContainEqual(
+        expect.objectContaining({
           level: 'INFO',
-          message: expect.stringContaining('测试基础日志'),
+          message: expect.stringContaining('信息'),
         }),
       );
 
