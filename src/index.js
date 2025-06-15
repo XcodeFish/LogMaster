@@ -4,6 +4,10 @@
  */
 
 import LogMaster from './LogMaster';
+import * as transports from './transports/index.js';
+
+// 添加传输系统到LogMaster
+LogMaster.transports = transports;
 
 // 导出单例实例
 export default LogMaster;

@@ -284,17 +284,15 @@ LogMaster 兼容各种现代JavaScript环境：
 
 ## 扩展功能：传输系统
 
-LogMaster 提供可扩展的传输系统，通过安装额外的扩展包，可将日志输出到不同目标：
+LogMaster 提供可扩展的传输系统，可将日志输出到不同目标。传输系统已集成在核心包中，无需安装额外的包：
 
-```bash
-npm install logmaster-transport
-```
-
-### 使用传输扩展
+### 使用传输系统
 
 ```javascript
-import logger from 'logmaster';
-import { FileTransport, HttpTransport } from 'logmaster-transport';
+import LogMaster from 'logmaster';
+
+// 从核心包中使用传输类
+const { FileTransport, HTTPTransport } = LogMaster.transports;
 
 // 添加文件传输
 logger.addTransport(new FileTransport({
@@ -308,7 +306,7 @@ logger.addTransport(new FileTransport({
 }));
 
 // 添加HTTP传输
-logger.addTransport(new HttpTransport({
+logger.addTransport(new HTTPTransport({
   url: 'https://logging.example.com/collect',
   method: 'POST',
   headers: { 'X-API-Key': 'your-api-key' },
@@ -322,13 +320,13 @@ logger.info('用户已登录', { userId: 123 });
 
 ### 可用传输类型
 
-| 传输类型 | 包名 | 说明 |
-|---------|------|-----|
-| 文件系统 | logmaster-transport-file | 支持日志轮转、压缩、格式化 |
-| HTTP/HTTPS | logmaster-transport-http | 支持批处理、重试、自定义头 |
-| 数据库 | logmaster-transport-db | 支持MongoDB、MySQL等数据库 |
-| 云服务 | logmaster-transport-cloud | 支持AWS CloudWatch、Google Cloud Logging |
-| 控制台增强 | logmaster-transport-console | 增强版控制台输出(进度条、动画) |
+LogMaster 核心包中包含以下传输类型：
+
+| 传输类型    | 类名          | 说明                                 |
+|------------|--------------|-------------------------------------|
+| 文件系统    | FileTransport | 支持日志轮转、压缩、格式化            |
+| HTTP/HTTPS | HTTPTransport | 支持批处理、重试、自定义头            |
+| 自定义传输  | BaseTransport | 可继承此类创建自定义传输实现         |
 
 ## 常见问题 (FAQ)
 
@@ -343,10 +341,11 @@ logger.setLogLevel('SILENT');
 
 ### Q: 如何将日志输出到文件?
 
-**A:** 推荐使用传输扩展：
+**A:** 推荐使用传输系统：
 
 ```javascript
-import { FileTransport } from 'logmaster-transport';
+import LogMaster from 'logmaster';
+const { FileTransport } = LogMaster.transports;
 
 logger.addTransport(new FileTransport({
   filename: './logs/app.log'
