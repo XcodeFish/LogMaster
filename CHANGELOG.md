@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.5](https://github.com/XcodeFish/LogMaster/compare/v1.1.2...v1.1.5) (2025-06-15)
+
+
+### Bug Fixes
+
+* 修改包名 ([3d58c3e](https://github.com/XcodeFish/LogMaster/commit/3d58c3e8d46b04ad148c62357c531bebb8135a37))
+* 修改构建之后存在问题以及包名 ([54ff4a6](https://github.com/XcodeFish/LogMaster/commit/54ff4a6cafc1c6430d7fbae1bbef125be6be4f83))
+
 ### [1.1.4](https://github.com/XcodeFish/LogMaster/compare/v1.1.2...v1.1.4) (2025-06-15)
 
 
