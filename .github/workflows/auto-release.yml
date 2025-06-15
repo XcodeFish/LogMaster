@@ -4,11 +4,6 @@ name: 自动版本发布
 on:
   push:
     branches: [ main, release ]
-    paths-ignore:
-      - 'CHANGELOG.md'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'pnpm-lock.yaml'
 
 jobs:
   auto-release:
@@ -23,8 +18,8 @@ jobs:
 
       - name: 设置Git用户
         run: |
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
+          git config --global user.name 'codefish'
+          git config --global user.email 'passerby365@163.com'
 
       - name: 设置Node.js
         uses: actions/setup-node@v3
@@ -58,6 +53,9 @@ jobs:
 
       - name: 推送变更
         run: |
+          # 先拉取最新的变更以避免推送冲突
+          git pull --rebase origin ${{ github.ref_name }}
+          # 然后推送包含标签的更改
           git push --follow-tags origin ${{ github.ref_name }}
 
       - name: 构建项目
