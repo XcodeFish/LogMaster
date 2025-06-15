@@ -30,6 +30,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: 安装pnpm
         uses: pnpm/action-setup@v2
@@ -58,3 +59,11 @@ jobs:
       - name: 推送变更
         run: |
           git push --follow-tags origin ${{ github.ref_name }}
+
+      - name: 构建项目
+        run: pnpm build
+
+      - name: 发布到NPM
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
