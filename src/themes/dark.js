@@ -274,28 +274,6 @@ function ensureDarkThemeContrast(theme) {
 }
 
 /**
- * 获取兼容性降级的暗色主题
- * @param {Object} userTheme - 用户提供的主题配置
- * @returns {Object} 处理后的暗色主题配置
- */
-function getFallbackDarkTheme(userTheme = {}) {
-  const baseTheme = getEnvironmentSpecificTheme();
-
-  // 合并用户主题和默认暗色主题
-  const mergedTheme = {
-    colors: { ...baseTheme.colors, ...userTheme.colors },
-    icons: { ...baseTheme.icons, ...userTheme.icons },
-    fonts: { ...baseTheme.fonts, ...userTheme.fonts },
-    styles: { ...baseTheme.styles, ...userTheme.styles },
-    format: { ...baseTheme.format, ...userTheme.format },
-    animations: { ...baseTheme.animations, ...userTheme.animations },
-  };
-
-  // 确保对比度符合标准
-  return ensureDarkThemeContrast(mergedTheme);
-}
-
-/**
  * 生成CSS样式对象
  * @param {Object} theme - 主题配置
  * @returns {Object} CSS样式对象
@@ -367,59 +345,86 @@ function generateStyles(theme) {
   };
 }
 
-/**
- * 暗色主题导出
- */
-export default {
+const darkThemeExport = {
   /**
    * 获取暗色主题配置
+   * @param {Object} options - 主题选项
    * @returns {Object} 暗色主题配置
    */
-  getTheme() {
-    return ensureDarkThemeContrast(getEnvironmentSpecificTheme());
+  getTheme(options = {}) {
+    // 获取环境特定的暗色主题
+    const envTheme = getEnvironmentSpecificTheme();
+
+    // 合并用户选项
+    return {
+      ...envTheme,
+      ...options,
+      isDark: true, // 确保暗色主题标记
+    };
   },
 
   /**
-   * 获取合并后的暗色主题
+   * 合并用户主题与暗色主题
    * @param {Object} userTheme - 用户自定义主题
-   * @returns {Object} 合并后的暗色主题
+   * @returns {Object} 合并后的主题
    */
   mergeTheme(userTheme) {
-    return getFallbackDarkTheme(userTheme);
+    // 获取基础暗色主题
+    const baseTheme = this.getTheme();
+
+    // 如果用户主题无效，则返回基础主题
+    if (!userTheme || typeof userTheme !== 'object') {
+      return baseTheme;
+    }
+
+    // 合并主题，确保颜色对比度
+    const mergedTheme = {
+      ...baseTheme,
+      ...userTheme,
+      colors: { ...baseTheme.colors, ...(userTheme.colors || {}) },
+      icons: { ...baseTheme.icons, ...userTheme.icons },
+      fonts: { ...baseTheme.fonts, ...userTheme.fonts },
+      styles: { ...baseTheme.styles, ...userTheme.styles },
+      format: { ...baseTheme.format, ...userTheme.format },
+      animations: { ...baseTheme.animations, ...userTheme.animations },
+      isDark: true, // 确保暗色主题标记
+    };
+
+    // 应用颜色对比度优化
+    return ensureDarkThemeContrast(mergedTheme);
   },
 
   /**
-   * 获取暗色主题样式
-   * @param {Object} [theme] - 主题配置，不提供则使用默认暗色主题
+   * 获取主题样式
+   * @param {Object} theme - 主题配置
    * @returns {Object} 样式对象
    */
   getStyles(theme) {
-    return generateStyles(theme || ensureDarkThemeContrast(getEnvironmentSpecificTheme()));
+    return generateStyles(theme || this.getTheme());
   },
 
   /**
    * 获取高对比度暗色主题
-   * 针对视觉障碍用户优化的高对比度变体
    * @returns {Object} 高对比度暗色主题
    */
   getHighContrastTheme() {
-    const baseTheme = getEnvironmentSpecificTheme();
-    const highContrastTheme = { ...baseTheme };
+    const baseTheme = this.getTheme();
 
-    // 增强对比度
-    highContrastTheme.colors = {
-      ...baseTheme.colors,
-      debug: '#a2c8ff', // 更亮的蓝色
-      info: '#a2e9ff', // 更亮的青色
-      warn: '#ffe066', // 更亮的黄色
-      error: '#ff8080', // 更亮的红色
-      text: '#ffffff', // 纯白色文本
-      background: '#121212', // 更深的背景色
-      border: '#666666', // 更亮的边框
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        text: '#FFFFFF', // 纯白色文本
+        debug: '#A9C6FF', // 更亮的蓝色
+        info: '#A5E9FF', // 更亮的青色
+        warn: '#FFE066', // 更亮的黄色
+        error: '#FF9999', // 更亮的红色
+      },
+      darkMode: {
+        ...baseTheme.darkMode,
+        highContrast: true,
+      },
     };
-
-    // 确保对比度符合WCAG AAA标准 (7:1)
-    return ensureDarkThemeContrast(highContrastTheme);
   },
 
   /**
@@ -427,9 +432,29 @@ export default {
    * @returns {Object} 减少动画的暗色主题
    */
   getReducedMotionTheme() {
-    const theme = getEnvironmentSpecificTheme();
-    theme.animations.enabled = false;
-    theme.animations.duration = '0s';
-    return theme;
+    const baseTheme = this.getTheme();
+
+    return {
+      ...baseTheme,
+      animations: {
+        ...baseTheme.animations,
+        enabled: false,
+        duration: '0s',
+        newLogFade: false,
+        groupToggle: false,
+      },
+      darkMode: {
+        ...baseTheme.darkMode,
+        reduceMotion: true,
+      },
+    };
   },
 };
+
+// 同时支持 ESM 和 CommonJS
+export default darkThemeExport;
+
+// 兼容 CommonJS
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = darkThemeExport;
+}

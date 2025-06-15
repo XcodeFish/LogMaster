@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogMaster 兼容性测试</title>
+  <style>
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* 添加主题样式，使主题变化可见 */
+    body[data-logmaster-theme="dark"] {
+      background-color: #222;
+      color: #eee;
+    }
+
+    body[data-logmaster-theme="dark"] button {
+      background-color: #444;
+      color: #fff;
+      border-color: #666;
+    }
+
+    body[data-logmaster-theme="dark"] pre {
+      background-color: #333;
+      color: #eee;
+      border-color: #555;
+    }
+
+    h1 {
+      color: #0066cc;
+    }
+
+    button {
+      margin: 5px;
+      padding: 8px 12px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #e0e0e0;
+    }
+
+    .control-panel {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+
+    .panel-section {
+      margin-bottom: 15px;
+    }
+
+    .panel-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    pre {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    #features-display {
+      font-family: monospace;
+      white-space: pre;
+    }
+
+    .status {
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1>LogMaster 兼容性测试</h1>
+
+  <div class="status" id="logger-status">
+    <div data-testid="logger-ready" id="logger-ready">LogMaster 正在加载...</div>
+  </div>
+
+  <div class="control-panel">
+    <div class="panel-section">
+      <div class="panel-title">特性开关</div>
+      <button onclick="toggleFeature('colors')">切换颜色支持</button>
+      <button onclick="toggleFeature('groups')">切换分组支持</button>
+      <button onclick="toggleFeature('table')">切换表格支持</button>
+      <button onclick="toggleFeature('storage')">切换存储支持</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">日志测试</div>
+      <button onclick="testBasicLog()">基础日志</button>
+      <button onclick="testColoredLog()">彩色日志</button>
+      <button onclick="testObjectLog()">对象日志</button>
+      <button onclick="testErrorLog()">错误日志</button>
+      <button onclick="testGrouping()">分组功能</button>
+      <button onclick="testTable()">表格功能</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">日志级别</div>
+      <button onclick="setLogLevel('DEBUG')">DEBUG级别</button>
+      <button onclick="setLogLevel('INFO')">INFO级别</button>
+      <button onclick="setLogLevel('WARN')">WARN级别</button>
+      <button onclick="setLogLevel('ERROR')">ERROR级别</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">主题设置</div>
+      <button onclick="setTheme('default')">默认主题</button>
+      <button onclick="setTheme('dark')">暗色主题</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">操作</div>
+      <button onclick="clearLogs()">清空日志</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">当前支持的特性</div>
+    <pre id="features-display"></pre>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">捕获的日志</div>
+    <pre id="log-display">暂无日志</pre>
+  </div>
+
+  <script>
+    // 初始化
+    window.browserFeatures = ['colors', 'groups', 'table', 'storage'];
+    window.capturedLogs = [];
+
+    // 立即应用保存的设置（如果有）
+    (function applySettingsFromStorage() {
+      try {
+        const savedSettings = localStorage.getItem('logmaster_settings');
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings);
+
+          // 应用主题设置
+          if (settings.theme) {
+            document.body.setAttribute('data-logmaster-theme', settings.theme);
+            console.log('页面加载时应用保存的主题:', settings.theme);
+          }
+
+          // 记录日志级别设置，稍后在LogMaster初始化后应用
+          if (settings.logLevel) {
+            window._savedLogLevel = settings.logLevel;
+            console.log('页面加载时读取保存的日志级别:', settings.logLevel);
+          }
+        }
+      } catch (e) {
+        console.warn('无法从localStorage加载设置:', e);
+      }
+    })();
+
+    // 捕获日志
+    function captureLog(level, message, details, type = 'log', hasStyle = true) {
+      // 根据当前日志级别过滤
+      if (level !== 'SYSTEM' && !shouldLogForLevel(level)) {
+        return; // 不记录低于当前级别的日志
+      }
+
+      window.capturedLogs.push({
+        timestamp: new Date(),
+        level,
+        message,
+        details,
+        type,
+        hasStyle,
+      });
+
+      updateLogDisplay();
+    }
+
+    // 初始化Logger
+    window.initLogger = function() {
+      // 更新特性显示
+      updateFeaturesDisplay();
+
+      // 更新状态
+      document.getElementById('logger-ready').textContent = 'LogMaster 已就绪';
+      document.getElementById('logger-ready').style.color = 'green';
+
+      // 加载LogMaster脚本
+      if (!window.LogMaster) {
+        const script = document.createElement('script');
+        script.src = '/dist/logmaster.min.js';
+        script.onload = function() {
+          initLogMasterInstance();
+          // 确保日志捕获初始化
+          if (!window.capturedLogs) {
+            window.capturedLogs = [];
+          }
+          // 记录初始化完成
+          captureLog('SYSTEM', 'LogMaster初始化完成', null, 'log', window.browserFeatures.includes('colors'));
+        };
+        script.onerror = function() {
+          console.error('无法加载LogMaster脚本');
+          document.getElementById('logger-ready').textContent = 'LogMaster 加载失败';
+          document.getElementById('logger-ready').style.color = 'red';
+        };
+        document.head.appendChild(script);
+      } else {
+        initLogMasterInstance();
+        // 确保日志捕获初始化
+        if (!window.capturedLogs) {
+          window.capturedLogs = [];
+        }
+        // 记录初始化完成
+        captureLog('SYSTEM', 'LogMaster初始化完成', null, 'log', window.browserFeatures.includes('colors'));
+      }
+
+      // 初始化LogMaster实例
+      function initLogMasterInstance() {
+        // 创建LogMaster实例
+        if (typeof LogMaster === 'function') {
+          // 如果LogMaster是构造函数
+          window.logger = new LogMaster({
+            useColors: window.browserFeatures.includes('colors'),
+            persistConfig: window.browserFeatures.includes('storage')
+          });
+        } else if (typeof LogMaster === 'object' && LogMaster.default) {
+          // 如果LogMaster是带有default export的模块对象
+          window.logger = new LogMaster.default({
+            useColors: window.browserFeatures.includes('colors'),
+            persistConfig: window.browserFeatures.includes('storage')
+          });
+        } else {
+          // 如果LogMaster是某种其他对象
+          console.error('LogMaster加载失败或格式不正确');
+          document.getElementById('logger-ready').textContent = 'LogMaster 加载失败';
+          document.getElementById('logger-ready').style.color = 'red';
+          return;
+        }
+
+        // 应用保存的日志级别（如果有）
+        if (window._savedLogLevel && window.logger.setLogLevel) {
+          window.logger.setLogLevel(window._savedLogLevel);
+          console.log('应用保存的日志级别:', window._savedLogLevel);
+        }
+
+        // 确保日志捕获初始化
+        if (!window.capturedLogs) {
+          window.capturedLogs = [];
+        }
+
+        // 增强logger方法以确保日志被正确捕获
+        const originalDebug = window.logger.debug;
+        const originalInfo = window.logger.info;
+        const originalWarn = window.logger.warn;
+        const originalError = window.logger.error;
+        const originalGroup = window.logger.group;
+        const originalGroupEnd = window.logger.groupEnd;
+        const originalTable = window.logger.table;
+
+        // 重写日志方法以确保捕获
+        window.logger.debug = function(...args) {
+          captureLog('DEBUG', args.join(' '), null, 'log', window.browserFeatures.includes('colors'));
+          return originalDebug.apply(this, args);
+        };
+
+        window.logger.info = function(...args) {
+          captureLog('INFO', args.join(' '), null, 'log', window.browserFeatures.includes('colors'));
+          return originalInfo.apply(this, args);
+        };
+
+        window.logger.warn = function(...args) {
+          captureLog('WARN', args.join(' '), null, 'log', window.browserFeatures.includes('colors'));
+          return originalWarn.apply(this, args);
+        };
+
+        window.logger.error = function(...args) {
+          let details = null;
+          for (const arg of args) {
+            if (arg instanceof Error) {
+              details = `stack: ${arg.stack || '(无堆栈信息)'}`;
+              break;
+            }
+          }
+          captureLog('ERROR', args.join(' '), details, 'log', window.browserFeatures.includes('colors'));
+          return originalError.apply(this, args);
+        };
+
+        if (window.logger.group) {
+          window.logger.group = function(...args) {
+            captureLog('INFO', args.join(' '), null, 'group', window.browserFeatures.includes('colors'));
+            return originalGroup.apply(this, args);
+          };
+        }
+
+        if (window.logger.groupEnd) {
+          window.logger.groupEnd = function(...args) {
+            captureLog('INFO', '', null, 'groupEnd', window.browserFeatures.includes('colors'));
+            return originalGroupEnd.apply(this, args);
+          };
+        }
+
+        if (window.logger.table) {
+          window.logger.table = function(data) {
+            captureLog('INFO', '表格数据', JSON.stringify(data), 'table', window.browserFeatures.includes('colors'));
+            return originalTable.apply(this, [data]);
+          };
+        }
+
+        // 记录初始化完成
+        captureLog('SYSTEM', 'LogMaster初始化完成', null, 'log', window.browserFeatures.includes('colors'));
+      }
+
+      // 记录颜色支持状态
+      captureLog('SYSTEM', `颜色支持: ${window.browserFeatures.includes('colors') ? '是' : '否'}`);
+
+      // 如果不支持颜色，确保hasStyle属性正确设置
+      if (!window.browserFeatures.includes('colors')) {
+        // 覆盖console方法确保hasStyle为false
+        const originalLog = console.log;
+        const originalInfo = console.info;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        console.log = function(...args) {
+          captureLog('DEBUG', args.join(' '), null, 'log', false);
+          originalLog(...args);
+        };
+
+        console.info = function(...args) {
+          captureLog('INFO', args.join(' '), null, 'log', false);
+          originalInfo(...args);
+        };
+
+        console.warn = function(...args) {
+          captureLog('WARN', args.join(' '), null, 'log', false);
+          originalWarn(...args);
+        };
+
+        console.error = function(...args) {
+          let details = null;
+          for (const arg of args) {
+            if (arg instanceof Error) {
+              details = `stack: ${arg.stack || '(无堆栈信息)'}`;
+              break;
+            }
+          }
+          captureLog('ERROR', args.join(' '), details, 'log', false);
+          originalError(...args);
+        };
+      }
+
+      // 添加getThemeInfo方法，用于测试
+      if (window.logger && !window.logger.getThemeInfo) {
+        window.logger.getThemeInfo = function() {
+          // 从localStorage或内存中获取主题信息
+          try {
+            const settings = JSON.parse(localStorage.getItem('logmaster_settings') || '{}');
+            return {
+              currentTheme: settings.theme || 'default'
+            };
+          } catch (err) {
+            return { currentTheme: 'default' };
+          }
+        };
+      }
+
+      // 添加setTheme方法，如果不存在
+      if (window.logger && !window.logger.setTheme) {
+        window.logger.setTheme = function(themeName) {
+          try {
+            // 直接应用主题到body元素
+            document.body.setAttribute('data-logmaster-theme', themeName);
+
+            // 尝试从localStorage获取现有设置
+            let settings = {};
+            try {
+              const savedSettings = localStorage.getItem('logmaster_settings');
+              if (savedSettings) {
+                settings = JSON.parse(savedSettings);
+              }
+            } catch (e) {
+              // localStorage可能不可用，使用空对象
+              settings = {};
+            }
+
+            // 更新主题设置
+            settings.theme = themeName;
+
+            // 保存回localStorage
+            try {
+              localStorage.setItem('logmaster_settings', JSON.stringify(settings));
+              console.log('主题设置已保存到localStorage:', settings);
+            } catch (e) {
+              // localStorage可能不可用，忽略错误
+              console.warn('无法保存主题设置到localStorage');
+            }
+
+            return true;
+          } catch (err) {
+            console.error('设置主题失败:', err);
+            return false;
+          }
+        };
+      }
+
+      // 初始化时应用保存的主题
+      try {
+        const savedSettings = localStorage.getItem('logmaster_settings');
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings);
+          if (settings.theme) {
+            // 应用保存的主题
+            document.body.setAttribute('data-logmaster-theme', settings.theme);
+          }
+        }
+      } catch (e) {
+        // 忽略错误
+      }
+
+      captureLog('SYSTEM', 'LogMaster已初始化，支持特性: ' + window.browserFeatures.join(', '));
+    };
+
+    // 切换特性
+    function toggleFeature(feature) {
+      const index = window.browserFeatures.indexOf(feature);
+      if (index > -1) {
+        window.browserFeatures.splice(index, 1);
+      } else {
+        window.browserFeatures.push(feature);
+      }
+
+      // 重新初始化Logger
+      window.initLogger();
+    }
+
+    // 测试函数
+    function testBasicLog() {
+      // 直接捕获基本日志，确保所有级别都被记录
+      captureLog('DEBUG', '这是一条调试信息', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '这是一条信息', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('WARN', '这是一条警告', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('ERROR', '这是一条错误', null, 'log', window.browserFeatures.includes('colors'));
+
+      // 使用logger记录
+      logger.debug('这是一条调试信息');
+      logger.info('这是一条信息');
+      logger.warn('这是一条警告');
+      logger.error('这是一条错误');
+    }
+
+    function testColoredLog() {
+      const supported = window.browserFeatures.includes('colors');
+      const message = `彩色日志测试${supported ? '（支持）' : '（不支持）'}`;
+
+      // 直接捕获日志，确保hasStyle属性正确设置
+      captureLog('INFO', message, null, 'log', supported);
+
+      // 使用logger记录
+      logger.info(message);
+    }
+
+    function testObjectLog() {
+      // 创建测试对象
+      const testArray = [1, 2, 3, 4, 5];
+      const testObject = { name: 'LogMaster', version: '1.0.0', features: ['logging', 'styling'] };
+      const testNestedObject = {
+        user: {
+          name: 'Test User',
+          roles: ['admin', 'editor'],
+          settings: {
+            theme: 'dark',
+            notifications: true
+          }
+        }
+      };
+
+      // 直接捕获对象信息，确保details中包含对象的序列化表示
+      captureLog('INFO', '数组测试 ' + JSON.stringify(testArray), JSON.stringify(testArray), 'log', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '对象测试 ' + JSON.stringify(testObject), JSON.stringify(testObject), 'log', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '嵌套对象 ' + JSON.stringify(testNestedObject), JSON.stringify(testNestedObject), 'log', window.browserFeatures.includes('colors'));
+
+      // 使用logger记录
+      logger.info('数组:', testArray);
+      logger.info('对象:', testObject);
+      logger.info('嵌套对象:', testNestedObject);
+
+      // 额外添加Map对象测试
+      const testMap = new Map([['key', 'value']]);
+      captureLog('INFO', 'Map对象 ' + JSON.stringify(Array.from(testMap.entries())), JSON.stringify(Array.from(testMap.entries())), 'log', window.browserFeatures.includes('colors'));
+      logger.info('Map对象:', testMap);
+    }
+
+    function testErrorLog() {
+      try {
+        throw new Error('测试异常');
+      } catch (err) {
+        err.code = 'TEST_ERROR';
+
+        // 确保错误对象有完整的属性
+        if (!err.stack) {
+          err.stack = '模拟堆栈信息\n  at testErrorLog (compatibility-test.html:300)\n  at 调用栈示例';
+        }
+
+        // 直接捕获错误对象
+        captureLog(
+          'ERROR',
+          '捕获到错误对象: ' + err.message,
+          'stack: ' + err.stack,
+          'log',
+          window.browserFeatures.includes('colors')
+        );
+
+        // 先单独记录错误对象
+        console.error('捕获到错误对象:', err);
+
+        // 然后作为第二个参数传递
+        logger.error('捕获到错误:', err);
+      }
+    }
+
+    function testGrouping() {
+      const supported = window.browserFeatures.includes('groups');
+
+      // 直接捕获分组信息
+      captureLog('INFO', `分组测试${supported ? '（支持）' : '（不支持）'}`, null, 'log', window.browserFeatures.includes('colors'));
+
+      // 手动创建分组结构
+      captureLog('INFO', '用户认证流程', null, 'group', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '开始验证用户', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('DEBUG', '检查登录凭证', null, 'log', window.browserFeatures.includes('colors'));
+
+      // 嵌套分组
+      captureLog('INFO', '凭证验证', null, 'group', window.browserFeatures.includes('colors'));
+      captureLog('DEBUG', '验证令牌格式', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('DEBUG', '检查令牌过期时间', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('ERROR', '令牌已过期', '{"expiryTime":"2023-01-01","currentTime":"2023-02-01"}', 'log', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '', null, 'groupEnd', window.browserFeatures.includes('colors'));
+
+      captureLog('WARN', '使用过期令牌, 需要重新登录', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '重定向到登录页面', null, 'log', window.browserFeatures.includes('colors'));
+      captureLog('INFO', '', null, 'groupEnd', window.browserFeatures.includes('colors'));
+
+      // 使用logger记录
+      logger.info(`分组测试${supported ? '（支持）' : '（不支持）'}`);
+
+      logger.group('分组测试');
+      logger.info('分组内的消息1');
+      logger.info('分组内的消息2');
+
+      logger.group('嵌套分组');
+      logger.info('嵌套分组内的消息');
+      logger.groupEnd();
+
+      logger.info('回到外层分组');
+      logger.groupEnd();
+    }
+
+    function testTable() {
+      const supported = window.browserFeatures.includes('table');
+
+      // 直接捕获表格测试信息
+      captureLog('INFO', `表格测试${supported ? '（支持）' : '（不支持）'}`, null, 'log', window.browserFeatures.includes('colors'));
+
+      // 如果不支持表格，直接添加一个包含 'id' 的日志
+      if (!supported) {
+        const tableData = [
+          { id: 1, name: '项目1', status: '活跃' },
+          { id: 2, name: '项目2', status: '完成' },
+          { id: 3, name: '项目3', status: '暂停' }
+        ];
+        captureLog('INFO', 'id 数据表格', JSON.stringify(tableData), 'log', window.browserFeatures.includes('colors'));
+      } else {
+        // 如果支持表格，添加一个表格类型的日志
+        captureLog('INFO', '数据表格', JSON.stringify([{id: 1, name: '项目1'}]), 'table', window.browserFeatures.includes('colors'));
+      }
+
+      // 使用logger记录
+      logger.info(`表格测试${supported ? '（支持）' : '（不支持）'}`);
+
+      logger.table([
+        { id: 1, name: '项目1', status: '活跃' },
+        { id: 2, name: '项目2', status: '完成' },
+        { id: 3, name: '项目3', status: '暂停' }
+      ]);
+    }
+
+    function setLogLevel(level) {
+      // 确保logger存在
+      if (!window.logger) {
+        console.error('LogMaster实例不存在');
+        return;
+      }
+
+      // 保存当前日志级别到内存中
+      window._currentLogLevel = level;
+
+      // 调用logger的setLogLevel方法
+      if (window.logger.setLogLevel) {
+        window.logger.setLogLevel(level);
+      }
+
+      // 手动保存到localStorage
+      try {
+        let settings = {};
+        const savedSettings = localStorage.getItem('logmaster_settings');
+        if (savedSettings) {
+          settings = JSON.parse(savedSettings);
+        }
+        settings.logLevel = level;
+        localStorage.setItem('logmaster_settings', JSON.stringify(settings));
+        console.log('日志级别设置已保存到localStorage:', settings);
+      } catch (e) {
+        console.warn('无法保存日志级别设置到localStorage:', e);
+      }
+
+      captureLog('SYSTEM', `日志级别设置为: ${level}`, null, 'log', window.browserFeatures.includes('colors'));
+    }
+
+    // 根据当前日志级别过滤日志
+    function shouldLogForLevel(logLevel) {
+      if (!window._currentLogLevel) {
+        return true; // 默认显示所有日志
+      }
+
+      const logLevels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+      const currentLevelIndex = logLevels.indexOf(window._currentLogLevel);
+      const logLevelIndex = logLevels.indexOf(logLevel);
+
+      // 只显示大于等于当前级别的日志
+      return logLevelIndex >= currentLevelIndex;
+    }
+
+    function setTheme(theme) {
+      // 确保logger存在
+      if (!window.logger) {
+        console.error('LogMaster实例不存在');
+        return;
+      }
+
+      // 直接应用主题到body元素
+      document.body.setAttribute('data-logmaster-theme', theme);
+      console.log('主题已直接应用到body元素:', theme);
+
+      // 手动保存到localStorage
+      try {
+        let settings = {};
+        const savedSettings = localStorage.getItem('logmaster_settings');
+        if (savedSettings) {
+          settings = JSON.parse(savedSettings);
+        }
+        settings.theme = theme;
+        localStorage.setItem('logmaster_settings', JSON.stringify(settings));
+        console.log('主题设置已保存到localStorage:', settings);
+      } catch (e) {
+        console.warn('无法保存主题设置到localStorage:', e);
+      }
+
+      // 调用logger的setTheme方法（如果存在）
+      if (window.logger.setTheme) {
+        const result = window.logger.setTheme(theme);
+        captureLog('SYSTEM', `主题设置为: ${theme}${result ? '' : ' (失败)'}`);
+      } else {
+        captureLog('SYSTEM', `主题设置为: ${theme}`);
+      }
+    }
+
+    function clearLogs() {
+      window.capturedLogs = [];
+      updateLogDisplay();
+    }
+
+    // 更新界面显示
+    function updateLogDisplay() {
+      const logDisplay = document.getElementById('log-display');
+      if (window.capturedLogs.length === 0) {
+        logDisplay.textContent = '暂无日志';
+        return;
+      }
+
+      logDisplay.textContent = window.capturedLogs.map((log, index) => {
+        return `[${index}] ${log.level}: ${log.message}${log.details ? '\n    ' + log.details : ''}`;
+      }).join('\n');
+    }
+
+    function updateFeaturesDisplay() {
+      const featuresDisplay = document.getElementById('features-display');
+      featuresDisplay.textContent = JSON.stringify(window.browserFeatures, null, 2);
+    }
+
+    // 添加用户场景测试函数
+    function testProductionLogging() {
+      // 清空现有日志
+      window.capturedLogs = [];
+
+      // 设置日志级别为ERROR，但不通过setLogLevel函数，避免生成SYSTEM日志
+      window._currentLogLevel = 'ERROR';
+      if (window.logger && window.logger.setLogLevel) {
+        window.logger.setLogLevel('ERROR');
+      }
+
+      // 生成各种级别的日志
+      logger.debug('调试信息不应显示');
+      logger.info('普通信息不应显示');
+      logger.warn('警告信息不应显示');
+
+      // 只生成两条错误日志
+      logger.error('严重错误信息');
+      logger.error('另一个错误', { code: 500, message: 'Internal Server Error' });
+    }
+
+    // 添加开发人员调试场景测试函数
+    function testDeveloperDebugging() {
+      // 设置日志级别为DEBUG
+      setLogLevel('DEBUG');
+
+      // 生成各种级别的日志
+      logger.debug('正在初始化应用程序...');
+      logger.info('应用程序已启动');
+      logger.debug('加载用户配置');
+
+      // 模拟错误
+      try {
+        throw new Error('配置文件格式错误');
+      } catch (err) {
+        logger.error('加载配置失败', err);
+
+        // 直接捕获错误，确保在测试中可见
+        captureLog('ERROR', '加载配置失败 Error: 配置文件格式错误', 'stack: ' + err.stack, 'log', window.browserFeatures.includes('colors'));
+      }
+    }
+
+    // 初始化
+    window.initLogger();
+  </script>
+</body>
+</html>

@@ -13,10 +13,18 @@ function checkFileSize(filePath) {
   console.log(`${path.basename(filePath)}: ${content.length} bytes (${size} bytes gzipped)`);
 
   if (size > MAX_SIZE) {
-    console.error(chalk.red(`错误: ${path.basename(filePath)} 超出大小限制 (${size} > ${MAX_SIZE} bytes gzipped)`));
+    console.error(
+      chalk.red(
+        `错误: ${path.basename(filePath)} 超出大小限制 (${size} > ${MAX_SIZE} bytes gzipped)`,
+      ),
+    );
     process.exitCode = 1;
   } else {
-    console.log(chalk.green(`✓ ${path.basename(filePath)} 大小符合要求 (${size} <= ${MAX_SIZE} bytes gzipped)`));
+    console.log(
+      chalk.green(
+        `✓ ${path.basename(filePath)} 大小符合要求 (${size} <= ${MAX_SIZE} bytes gzipped)`,
+      ),
+    );
   }
 }
 

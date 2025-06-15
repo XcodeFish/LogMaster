@@ -8,8 +8,9 @@
 // 性能测试配置参数
 module.exports = {
   // 日志记录延迟测试配置
-  latencyTest: {
+  latency: {
     iterations: 1000, // 测试迭代次数
+    threshold: 5, // 最大延迟阈值(毫秒)
     warmupIterations: 100, // 热身迭代次数（不计入结果）
     logTypes: ['debug', 'info', 'warn', 'error'],
     logPayloads: {
@@ -26,7 +27,9 @@ module.exports = {
   },
 
   // 内存使用测试配置
-  memoryTest: {
+  memory: {
+    iterations: 1000, // 测试迭代次数
+    threshold: 10, // 最大内存增长阈值(MB)
     baselineDuration: 1000, // 基线内存采集时间(ms)
     testDuration: 5000, // 测试运行时间(ms)
     samplingRate: 100, // 内存采样间隔(ms)
@@ -35,7 +38,9 @@ module.exports = {
   },
 
   // 高频日志性能测试配置
-  highFrequencyTest: {
+  highFrequency: {
+    iterations: 10000, // 测试迭代次数
+    threshold: 1000, // 最大执行时间阈值(毫秒)
     duration: 3000, // 测试持续时间(ms)
     batchSize: 10000, // 每批次日志数量
     batches: 5, // 批次数
@@ -43,7 +48,9 @@ module.exports = {
   },
 
   // 批量日志性能测试配置
-  batchLogTest: {
+  batchLog: {
+    batchSize: 1000, // 批处理大小
+    threshold: 1000, // 最大执行时间阈值(毫秒)
     messageCount: 10000, // 消息总数
     batchSizes: [10, 100, 1000, 5000, 10000], // 不同的批处理大小
     messageTemplate: 'Log message #{index} with timestamp {timestamp}',

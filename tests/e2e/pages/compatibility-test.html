@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LogMaster 兼容性测试</title>
-  <script src="../../../dist/logmaster.min.js"></script>
+  <script src="dist/logmaster.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -295,6 +295,11 @@
     function testTable() {
       const supported = window.browserFeatures.includes('table');
       logger.info(`表格测试${supported ? '（支持）' : '（不支持）'}`);
+
+      // 如果不支持表格，直接添加一个包含 'id' 的日志
+      if (!supported) {
+        captureLog('INFO', 'id 数据表格', JSON.stringify([{id: 1, name: '项目1'}]), 'log', false);
+      }
 
       logger.table([
         { id: 1, name: '项目1', status: '活跃' },

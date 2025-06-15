@@ -59,6 +59,11 @@ const themes = {
    * @returns {Object} 合并后的主题
    */
   mergeTheme(userTheme, baseThemeName = 'default') {
+    // 检查参数有效性
+    if (!userTheme || typeof userTheme !== 'object') {
+      return this.getTheme(baseThemeName);
+    }
+
     // 根据基础主题名称选择合适的主题合并器
     if (baseThemeName.toLowerCase() === 'dark') {
       return darkTheme.mergeTheme(userTheme);

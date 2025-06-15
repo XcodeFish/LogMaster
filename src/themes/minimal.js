@@ -146,7 +146,7 @@ const minimalThemeBase = {
 /**
  * 简约主题导出
  */
-export default {
+const minimalThemeExport = {
   /**
    * 获取简约主题配置
    * @param {Object} options - 主题选项
@@ -163,28 +163,41 @@ export default {
    */
   getTheme(options = {}) {
     // 使用优化策略应用用户选项
-    return themeOptimizers.applyOptimizations(minimalThemeBase, options);
+    const theme = themeOptimizers.applyOptimizations(minimalThemeBase, options);
+
+    // 添加简约主题特有属性
+    theme.simplifyOutput = true;
+    theme.reduceVisualNoise = true;
+
+    return theme;
   },
 
   /**
    * 获取合并后的主题
    * @param {Object} userTheme - 用户自定义主题
-   * @param {Object} options - 主题选项
    * @returns {Object} 合并后的主题
    */
-  mergeTheme(userTheme, options = {}) {
-    // 合并用户主题和基础主题
-    const mergedBase = {
-      colors: { ...minimalThemeBase.colors, ...userTheme.colors },
-      icons: { ...minimalThemeBase.icons, ...userTheme.icons },
-      fonts: { ...minimalThemeBase.fonts, ...userTheme.fonts },
-      styles: { ...minimalThemeBase.styles, ...userTheme.styles },
-      format: { ...minimalThemeBase.format, ...userTheme.format },
-      animations: { ...minimalThemeBase.animations, ...userTheme.animations },
-    };
+  mergeTheme(userTheme) {
+    if (!userTheme || typeof userTheme !== 'object') {
+      return this.getTheme();
+    }
 
-    // 应用优化策略
-    return themeOptimizers.applyOptimizations(mergedBase, options);
+    // 获取基本主题
+    const baseTheme = this.getTheme();
+
+    // 特别处理颜色属性，确保用户提供的颜色不被覆盖
+    const colors = userTheme.colors
+      ? { ...baseTheme.colors, ...userTheme.colors }
+      : baseTheme.colors;
+
+    // 合并其他属性，保留简约主题的特有属性
+    return {
+      ...baseTheme,
+      ...userTheme,
+      colors, // 确保颜色正确合并
+      simplifyOutput: true, // 确保简约主题特性不被覆盖
+      reduceVisualNoise: true,
+    };
   },
 
   /**
@@ -261,3 +274,11 @@ export default {
     };
   },
 };
+
+// 同时支持 ESM 和 CommonJS
+export default minimalThemeExport;
+
+// 兼容 CommonJS
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = minimalThemeExport;
+}
