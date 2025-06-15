@@ -35,19 +35,42 @@ jobs:
       - name: 安装依赖
         run: pnpm install
 
-      - name: 检查版本号
+      - name: 检查和清理标签
         id: version
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "当前版本: $CURRENT_VERSION"
 
-          TAG_EXISTS=$(git tag -l "v$CURRENT_VERSION")
-          if [[ ! -z "$TAG_EXISTS" ]]; then
-            echo "警告: 标签 v$CURRENT_VERSION 已存在"
-            git tag -d "v$CURRENT_VERSION" || true
-            git push origin --delete "v$CURRENT_VERSION" || true
-            echo "已删除已存在的标签 v$CURRENT_VERSION"
-          fi
+          IFS='.' read -r -a version_parts <<< "$CURRENT_VERSION"
+          PATCH_VERSION=$((version_parts[2] + 1))
+          NEXT_PATCH="${version_parts[0]}.${version_parts[1]}.$PATCH_VERSION"
+
+          MINOR_VERSION=$((version_parts[1] + 1))
+          NEXT_MINOR="${version_parts[0]}.$MINOR_VERSION.0"
+
+          MAJOR_VERSION=$((version_parts[0] + 1))
+          NEXT_MAJOR="$MAJOR_VERSION.0.0"
+
+          echo "可能的下一个版本:"
+          echo "- patch: $NEXT_PATCH"
+          echo "- minor: $NEXT_MINOR"
+          echo "- major: $NEXT_MAJOR"
+
+          echo "清理当前版本标签 v$CURRENT_VERSION"
+          git tag -d "v$CURRENT_VERSION" 2>/dev/null || true
+          git push origin --delete "v$CURRENT_VERSION" 2>/dev/null || true
+
+          echo "清理可能的下一个patch版本标签 v$NEXT_PATCH"
+          git tag -d "v$NEXT_PATCH" 2>/dev/null || true
+          git push origin --delete "v$NEXT_PATCH" 2>/dev/null || true
+
+          echo "清理可能的下一个minor版本标签 v$NEXT_MINOR"
+          git tag -d "v$NEXT_MINOR" 2>/dev/null || true
+          git push origin --delete "v$NEXT_MINOR" 2>/dev/null || true
+
+          echo "清理可能的下一个major版本标签 v$NEXT_MAJOR"
+          git tag -d "v$NEXT_MAJOR" 2>/dev/null || true
+          git push origin --delete "v$NEXT_MAJOR" 2>/dev/null || true
 
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
