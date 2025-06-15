@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.1](https://github.com/XcodeFish/LogMaster/compare/v1.1.0...v1.1.1) (2025-06-15)
+
+
+### Features
+
+* 添加自动发布到npm ([d9037ba](https://github.com/XcodeFish/LogMaster/commit/d9037ba5a0ba3f2d25f0bafe383a2cc2ef29b91a))
+
+
+### Bug Fixes
+
+* 修改传输系统使用方案 ([3a563c7](https://github.com/XcodeFish/LogMaster/commit/3a563c78a8795824eb597c261e15f04715d5c526))
+* 自动构建分支 ([6ce3eba](https://github.com/XcodeFish/LogMaster/commit/6ce3eba8161fb2a3ebce081183cfa610504009bd))
+
 ## 1.1.0 (2025-06-15)
 
 
