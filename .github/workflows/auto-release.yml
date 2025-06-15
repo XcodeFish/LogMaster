@@ -91,7 +91,16 @@ jobs:
 
       - name: 推送变更
         run: |
+          # 确保所有更改都已提交
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "发现未提交的更改，将自动提交"
+            git add .
+            git commit -m "chore: 自动提交未保存的更改 [skip ci]"
+          fi
+
+          # 先拉取最新的变更，使用变基方式避免分支分歧
           git pull --rebase --tags origin ${{ github.ref_name }}
+          # 然后推送包含标签的更改
           git push --follow-tags origin ${{ github.ref_name }}
 
       - name: 构建项目
