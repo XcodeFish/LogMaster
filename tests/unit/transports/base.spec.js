@@ -79,11 +79,11 @@ describe('BaseTransport 类测试', () => {
 
     // 低级别日志应被过滤
     await transport.log(infoEntry);
-    expect(transport.logs.length).toBe(0);
+    expect(transport.logs).toHaveLength(0);
 
     // 同级别或更高级别日志应通过
     await transport.log(warnEntry);
-    expect(transport.logs.length).toBe(1);
+    expect(transport.logs).toHaveLength(1);
   });
 
   test('禁用的传输不应记录日志', async () => {
@@ -100,7 +100,7 @@ describe('BaseTransport 类测试', () => {
     };
 
     await transport.log(logEntry);
-    expect(transport.logs.length).toBe(0);
+    expect(transport.logs).toHaveLength(0);
   });
 
   test('enable和disable方法应正常工作', () => {
@@ -204,9 +204,9 @@ describe('BaseTransport 类测试', () => {
     };
 
     await transport.log(filteredEntry);
-    expect(transport.logs.length).toBe(0);
+    expect(transport.logs).toHaveLength(0);
 
     await transport.log(passedEntry);
-    expect(transport.logs.length).toBe(1);
+    expect(transport.logs).toHaveLength(1);
   });
 });

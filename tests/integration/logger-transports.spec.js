@@ -123,13 +123,13 @@ describe('日志传输系统集成测试', () => {
     logMasterInstance.addTransport(mockFileTransport);
 
     // 确认两个传输都已添加
-    expect(logMasterInstance.getTransports().length).toBe(2);
+    expect(logMasterInstance.getTransports()).toHaveLength(2);
 
     // 删除控制台传输
     logMasterInstance.removeTransport(mockConsoleTransport.id);
 
     // 验证只剩下一个传输
-    expect(logMasterInstance.getTransports().length).toBe(1);
+    expect(logMasterInstance.getTransports()).toHaveLength(1);
     expect(logMasterInstance.getTransports()[0].id).toBe(mockFileTransport.id);
 
     // 记录错误日志
@@ -146,13 +146,13 @@ describe('日志传输系统集成测试', () => {
     logMasterInstance.addTransport(mockFileTransport);
 
     // 确认两个传输都已添加
-    expect(logMasterInstance.getTransports().length).toBe(2);
+    expect(logMasterInstance.getTransports()).toHaveLength(2);
 
     // 清除所有传输
     logMasterInstance.clearTransports();
 
     // 验证没有传输
-    expect(logMasterInstance.getTransports().length).toBe(0);
+    expect(logMasterInstance.getTransports()).toHaveLength(0);
 
     // 记录错误日志
     logMasterInstance.error('测试清除后的错误');

@@ -87,7 +87,7 @@ describe('HTTPTransport 类测试', () => {
 
     // 验证批处理队列
     expect(transport._batchQueue).toBeDefined();
-    expect(transport._batchQueue.length).toBe(2);
+    expect(transport._batchQueue).toHaveLength(2);
 
     // 应该没有发送请求（批处理大小未达到）
     expect(fetch).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('HTTPTransport 类测试', () => {
 
     // 验证批处理队列已清空
     expect(transport._batchQueue).toBeDefined();
-    expect(transport._batchQueue.length).toBe(0);
+    expect(transport._batchQueue).toHaveLength(0);
   });
 
   test.skip('应在达到批处理时间间隔时发送请求', async () => {

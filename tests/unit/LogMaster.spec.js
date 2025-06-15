@@ -202,7 +202,7 @@ describe('LogMaster 核心功能', () => {
     };
 
     logMaster.addTransport(mockTransport);
-    expect(logMaster._transports.length).toBe(1);
+    expect(logMaster._transports).toHaveLength(1);
     expect(logMaster._transports[0]).toBe(mockTransport);
   });
 
@@ -215,10 +215,10 @@ describe('LogMaster 核心功能', () => {
     };
 
     logMaster.addTransport(mockTransport);
-    expect(logMaster._transports.length).toBe(1);
+    expect(logMaster._transports).toHaveLength(1);
 
     logMaster.removeTransport(mockTransport);
-    expect(logMaster._transports.length).toBe(0);
+    expect(logMaster._transports).toHaveLength(0);
     expect(mockTransport.destroy).toHaveBeenCalled();
   });
 
@@ -239,10 +239,10 @@ describe('LogMaster 核心功能', () => {
 
     logMaster.addTransport(mockTransport1);
     logMaster.addTransport(mockTransport2);
-    expect(logMaster._transports.length).toBe(2);
+    expect(logMaster._transports).toHaveLength(2);
 
     logMaster.clearTransports();
-    expect(logMaster._transports.length).toBe(0);
+    expect(logMaster._transports).toHaveLength(0);
     expect(mockTransport1.destroy).toHaveBeenCalled();
     expect(mockTransport2.destroy).toHaveBeenCalled();
   });

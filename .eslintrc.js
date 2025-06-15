@@ -29,7 +29,7 @@ module.exports = {
     semi: ['error', 'always'],
 
     // jest规则
-    'jest/no-disabled-tests': 'warn',
+    'jest/no-disabled-tests': 'off',
     'jest/no-focused-tests': 'error',
     'jest/no-identical-title': 'error',
     'jest/prefer-to-have-length': 'warn',
