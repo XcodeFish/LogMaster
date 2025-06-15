@@ -422,10 +422,10 @@ npm run build
 
 ## 许可证
 
-本项目使用 [MIT 许可证](https://github.com/username/logmaster/blob/main/LICENSE)。
+本项目使用 [MIT 许可证](https://github.com/username/logmaster/blob/master/LICENSE)。
 
 ---
 
 LogMaster 帮助开发者在保持代码整洁的同时，快速定位问题，提升调试效率，是现代前端开发的必备工具。
 
-[版本更新日志](https://github.com/username/logmaster/blob/main/CHANGELOG.md) | [贡献指南](https://github.com/username/logmaster/blob/main/CONTRIBUTING.md) | [行为准则](https://github.com/username/logmaster/blob/main/CODE_OF_CONDUCT.md)
+[版本更新日志](https://github.com/username/logmaster/blob/master/CHANGELOG.md) | [贡献指南](https://github.com/username/logmaster/blob/master/CONTRIBUTING.md) | [行为准则](https://github.com/username/logmaster/blob/master/CODE_OF_CONDUCT.md)
