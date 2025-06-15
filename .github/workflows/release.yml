@@ -1,39 +1,53 @@
-name: Release
+name: LogMaster Release
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v3
+
+      - name: 使用 Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '16'
-          registry-url: 'https://registry.npmjs.org/'
+          node-version: 16.x
+          registry-url: 'https://registry.npmjs.org'
 
       - name: 安装依赖
         run: npm ci
 
-      - name: 测试
-        run: npm test
-
-      - name: 构建
+      - name: 构建项目
         run: npm run build
+
+      - name: 运行测试
+        run: npm run test
+
+      - name: 生成版本说明
+        id: changelog
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "::set-output name=version::$VERSION"
+          npx extract-changelog-release > RELEASE_NOTES.md
+
+      - name: 创建GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/logmaster.min.js
+            dist/logmaster.esm.js
+            dist/logmaster.cjs.js
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 发布到 NPM
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-
-      - name: 生成文档
-        run: npm run docs
-
-      - name: 部署文档到 GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@4.1.4
-        with:
-          branch: gh-pages
-          folder: docs/api
-          clean: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

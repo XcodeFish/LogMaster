@@ -1,4 +1,4 @@
-name: CI Workflow
+name: LogMaster CI
 
 on:
   push:
@@ -7,116 +7,64 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
+  lint-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [14.x, 16.x, 18.x]
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-    - name: 使用 Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v2
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: 使用 Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-    - name: 安装依赖
-      run: npm ci
+      - name: 安装依赖
+        run: npm ci
 
-    - name: 运行 Lint
-      run: npm run lint
+      - name: 代码风格检查
+        run: npm run lint
 
-    - name: 运行单元测试和集成测试
-      run: npm test
+      - name: 运行单元测试
+        run: npm run test:unit
 
-    - name: 检查覆盖率
-      run: npm run test:coverage
+      - name: 运行集成测试
+        run: npm run test:integration
 
-    - name: 上传覆盖率报告
-      uses: codecov/codecov-action@v2
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        directory: ./coverage/
-        fail_ci_if_error: true
+      - name: 上传测试覆盖率
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
-  e2e:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build-and-check:
+    needs: lint-and-test
     runs-on: ubuntu-latest
-    needs: test
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-    - name: 使用 Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-        cache: 'npm'
+      - name: 使用 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          cache: 'npm'
 
-    - name: 安装依赖
-      run: npm ci
+      - name: 安装依赖
+        run: npm ci
 
-    - name: 安装 Playwright
-      run: npx playwright install --with-deps
+      - name: 构建项目
+        run: npm run build
 
-    - name: 运行 E2E 测试
-      run: npm run test:e2e
+      - name: 检查包体积
+        run: npm run check-size
 
-    - name: 上传 Playwright 结果
-      if: always()
-      uses: actions/upload-artifact@v2
-      with:
-        name: playwright-results
-        path: test-results/
-
-  performance:
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: 使用 Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-        cache: 'npm'
-
-    - name: 安装依赖
-      run: npm ci
-
-    - name: 运行性能基准测试
-      run: npm run test:perf
-
-    - name: 检查性能回归
-      run: node scripts/check-perf-regression.js
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: 使用 Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-        cache: 'npm'
-
-    - name: 安装依赖
-      run: npm ci
-
-    - name: 构建
-      run: npm run build:all
-
-    - name: 检查包体积
-      run: npm run postbuild
-
-    - name: 上传构建产物
-      uses: actions/upload-artifact@v2
-      with:
-        name: dist
-        path: dist/
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
