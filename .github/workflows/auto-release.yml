@@ -58,6 +58,9 @@ jobs:
 
       - name: 推送变更
         run: |
+          # 先拉取最新的变更，使用变基方式避免分支分歧
+          git pull --rebase --tags origin ${{ github.ref_name }}
+          # 然后推送包含标签的更改
           git push --follow-tags origin ${{ github.ref_name }}
 
       - name: 构建项目
