@@ -56,7 +56,7 @@
     "pretty-print",
     "formatting"
   ],
-  "author": "",
+  "author": "codefish",
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.18.6",
@@ -103,6 +103,14 @@
       "prettier --write"
     ]
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XcodeFish/LogMaster.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XcodeFish/LogMaster/issues"
+  },
+  "homepage": "https://github.com/XcodeFish/LogMaster",
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
