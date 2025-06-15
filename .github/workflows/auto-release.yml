@@ -35,9 +35,24 @@ jobs:
       - name: 安装依赖
         run: pnpm install
 
+      - name: 检查版本号
+        id: version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "当前版本: $CURRENT_VERSION"
+
+          TAG_EXISTS=$(git tag -l "v$CURRENT_VERSION")
+          if [[ ! -z "$TAG_EXISTS" ]]; then
+            echo "警告: 标签 v$CURRENT_VERSION 已存在"
+            git tag -d "v$CURRENT_VERSION" || true
+            git push origin --delete "v$CURRENT_VERSION" || true
+            echo "已删除已存在的标签 v$CURRENT_VERSION"
+          fi
+
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
       - name: 自动版本发布
         run: |
-          # 计算应该发布的版本类型 (patch, minor, major)
           COMMIT_MSG=$(git log -1 --pretty=%B)
 
           if [[ $COMMIT_MSG == *"BREAKING CHANGE"* ]]; then
@@ -53,9 +68,7 @@ jobs:
 
       - name: 推送变更
         run: |
-          # 先拉取最新的变更，使用变基方式避免分支分歧
           git pull --rebase --tags origin ${{ github.ref_name }}
-          # 然后推送包含标签的更改
           git push --follow-tags origin ${{ github.ref_name }}
 
       - name: 构建项目
