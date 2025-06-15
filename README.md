@@ -22,19 +22,19 @@ LogMaster 是一个美观实用的日志管理工具，专为解决开发中日�
 
 ```bash
 # 使用npm
-npm install @codefish/logmaster
+npm install log-assistant
 
 # 使用yarn
-yarn add @codefish/logmaster
+yarn add log-assistant
 
 # 使用pnpm
-pnpm add @codefish/logmaster
+pnpm add log-assistant
 ```
 
 或直接在浏览器中引入：
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@codefish/logmaster@1.0.0/dist/logmaster.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/log-assistant@1.0.0/dist/logmaster.min.js"></script>
 ```
 
 ## 快速开始
@@ -42,7 +42,7 @@ pnpm add @codefish/logmaster
 ### 基础用法
 
 ```javascript
-import logger from '@codefish/logmaster';
+import logger from 'log-assistant';
 
 // 设置环境（可选，默认读取NODE_ENV）
 logger.setEnvironment('development');
